@@ -1,4 +1,4 @@
-function synthesizeLPC(segment, fs, f0, lpcOrder, duration)
+function [synthesizedImpulse, synthesizedSawtooth] = synthesizeLPC(segment, fs, f0, lpcOrder, duration)
     lpcCoeffs = lpc(segment, lpcOrder);
     
     T0 = round(fs / f0);
