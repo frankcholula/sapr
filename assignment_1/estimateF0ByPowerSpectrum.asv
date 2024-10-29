@@ -1,0 +1,18 @@
+function f0 = estimateF0ByPowerSpectrum(segmentPowerSpectrum, freqAxis)
+    % Estimate the fundamental frequency (F0) using the first peak in the power spectrum
+
+    % DC Component (first element of the spectrum)
+    dcComponent = segmentPowerSpectrum(1);
+    fprintf('DC Component: %.2f dB\n', pow2db(dcComponent));
+
+    % Exclude DC component and find the first significant peak
+    powerSpectrumNoDC = segmentPowerSpectrum(2:end);
+    [peakValue, f0IndexNoDC] = max(powerSpectrumNoDC);
+
+    % Adjust index to match original spectrum
+    f0Index = f0IndexNoDC + 1;
+
+    % Convert index to frequency
+    f0 = freqAxis(f0Index);
+    fprintf('Estimated F0 by First Peak: %.2f Hz\n', f0);
+end
