@@ -3,14 +3,13 @@ function [audio, fs, duration, numSamples] = playAudio(fileName)
     [audio, fs] = audioread(filePath);
     duration = length(audio) / fs;
     numSamples = length(audio);
+    sound(audio, fs);
     fprintf('Playing %s at %d Hz with duration %.2f seconds and %d samples\n',fileName, fs, duration, numSamples);
     
     figure();
-    subplot(3,1,1);
-    plotSpectrogram(audio, fs, fileName);
-    subplot(3,1,2);
+    subplot(2,1,1);
     plotWaveform(audio, fs, fileName, numSamples, duration)
-    subplot(3, 1, 3);
+    subplot(2,1,2);
     plotPowerSpectrum(audio, fs, fileName, numSamples);
 end
 
@@ -31,11 +30,5 @@ function plotWaveform(audio, fs, fileName, numSamples, duration)
     title(['Waveform of ', fileName])
     xlabel('Time (s)');
     ylabel('Amplitude');
-    sound(audio, fs);
     pause(duration + 1)
-end
-
-function plotSpectrogram (audio, fs, fileName)
-    spectrogram(audio, hamming(960), 240, 1024, fs, 'yaxis');
-    title(['Spectrogram of ', fileName]);
 end

@@ -7,7 +7,10 @@ function segment = extractCenterSegment(audio, fs, segmentDuration, filename)
     endIndex = startIndex + numSegmentSamples - 1;
 
     segment = audio(startIndex:endIndex);
+    plotCenterSegment(segment, fs, filename, numSegmentSamples, segmentDuration)
+end
 
+function plotCenterSegment(segment, fs, filename, numSegmentSamples, segmentDuration)
     figure;
     timeSegment = (0:numSegmentSamples - 1) / fs;
     plot(timeSegment, segment);
