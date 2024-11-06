@@ -1,6 +1,6 @@
 function plotLPCResponse(segment, fs, lpcOrder)    
     % Plot the power spectrum and LPC response for reference
-    lpcCoeffs = lpc(segment, lpcOrder);
+    [lpcCoeffs, g] = lpc(segment, lpcOrder)
     [h, f] = freqz(1, lpcCoeffs, 1024, fs);
     segmentFFT = fft(segment);
     segmentPowerSpectrum = abs(segmentFFT(1:floor(length(segment) / 2) + 1)).^2;

@@ -7,9 +7,9 @@ function [audio, fs, duration, numSamples] = playAudio(fileName)
     fprintf('Playing %s at %d Hz with duration %.2f seconds and %d samples\n',fileName, fs, duration, numSamples);
     
     figure();
-    subplot(2,1,1);
-    plotWaveform(audio, fs, fileName, numSamples, duration)
-    subplot(2,1,2);
+    % subplot(2,1,1);
+    % plotWaveform(audio, fs, fileName, numSamples, duration)
+    % subplot(2,1,2);
     plotPowerSpectrum(audio, fs, fileName, numSamples);
 end
 
@@ -17,7 +17,7 @@ function plotPowerSpectrum(audio, fs, fileName, numSamples)
     audio_fft = fft(audio);
     power_spectrum = abs(audio_fft(1:floor(numSamples / 2) + 1)).^2;
     freq = (0:floor(numSamples / 2)) * (fs / numSamples);
-    plot(freq, 10 * log10(power_spectrum));
+    plot(freq, pow2db(power_spectrum));
     title(['Power Spectrum of ', fileName]);
     xlabel('Frequency (Hz)');
     ylabel('Power (dB)');
