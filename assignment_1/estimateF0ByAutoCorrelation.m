@@ -1,6 +1,6 @@
 function [f0_estimate] = estimateF0ByAutoCorrelation(segment, fs, filename)
     % smooth the segment first
-    % segment = movmean(segment, 5);
+    segment = movmean(segment, 5);
     [autocorrValues, lags] = xcorr(segment, 'coeff');
     posLagIdx = lags >= 0;
     lags = lags(posLagIdx);
