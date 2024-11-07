@@ -1,6 +1,6 @@
-function orderSegmentAnalysis(signal, fs)
+function orderSegmentAnalysis(signal, fs, filename)
     segmentLengths_ms = 10:10:150;
-    lpcOrders = 20:30;
+    lpcOrders = 10:30;
     predictionErrors = zeros(length(segmentLengths_ms), length(lpcOrders));
 
     for i = 1:length(segmentLengths_ms)
@@ -17,7 +17,7 @@ function orderSegmentAnalysis(signal, fs)
     figure;
     [X, Y] = meshgrid(lpcOrders, segmentLengths_ms);
     surf(X, Y, predictionErrors);
-    title('LPC Prediction Error as a Function of Segment Length and LPC Order');
+    title(['LPC Prediction Error vs. Segment Length vs. LPC Order of ', filename]);
     xlabel('LPC Order');
     ylabel('Segment Length (ms)');
     zlabel('Prediction Error (Variance)');
@@ -27,7 +27,7 @@ function orderSegmentAnalysis(signal, fs)
     % Plot the prediction error as a heatmap
     figure;
     imagesc(lpcOrders, segmentLengths_ms, predictionErrors);
-    title('Heatmap of LPC Prediction Error');
+    title(['Heatmap of ', filename]);
     xlabel('LPC Order');
     ylabel('Segment Length (ms)');
     colorbar;

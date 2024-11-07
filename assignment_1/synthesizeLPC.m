@@ -1,4 +1,4 @@
-function [synthesizedImpulse, synthesizedSawtooth] = synthesizeLPC(segment, fs, f0, lpcOrder, duration)
+function [synthesizedImpulse, synthesizedSawtooth] = synthesizeLPC(segment, fs, f0, lpcOrder, duration, filename)
     [lpcCoeffs, predictionError] = lpc(segment, lpcOrder);
 
     gain = sqrt(predictionError);
@@ -34,10 +34,14 @@ function [synthesizedImpulse, synthesizedSawtooth] = synthesizeLPC(segment, fs, 
     synthesizedImpulse = synthesizedImpulse * (originalPeak/ synthesizedImpulsePeak);
     sound(synthesizedImpulse, fs);
     pause(duration + 1);
+    audiowrite(['synthesized_impulse/' filename], synthesizedImpulse, fs);
+
 
     synthesizedSawtooth = filter(1, lpcCoeffs, sawtoothSignal);
     synthesizedSawtoothPeak = max(abs(synthesizedSawtooth));
     synthesizedSawtooth = synthesizedSawtooth * (originalPeak/ synthesizedSawtoothPeak);
     sound(synthesizedSawtooth, fs);
     pause(duration + 1);
+    audiowrite(['synthesized_sawtooth/' filename], synthesizedSawtooth, fs);
+
 end
