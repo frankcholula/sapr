@@ -7,7 +7,7 @@ function segment = extractCenterSegment(audio, fs, segmentDuration, filename)
     endIndex = startIndex + numSegmentSamples - 1;
 
     segment = audio(startIndex:endIndex);
-    plotCenterSegment(segment, fs, filename, numSegmentSamples, segmentDuration)
+    % plotCenterSegment(segment, fs, filename, numSegmentSamples, segmentDuration);
 end
 
 function plotCenterSegment(segment, fs, filename, numSegmentSamples, segmentDuration)

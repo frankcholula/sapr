@@ -1,15 +1,17 @@
 function [synthesizedImpulse, synthesizedSawtooth] = synthesizeLPC(segment, fs, f0, lpcOrder, duration)
-    lpcCoeffs = lpc(segment, lpcOrder);
-    
+    [lpcCoeffs, predictionError] = lpc(segment, lpcOrder);
+
+    gain = sqrt(predictionError);
     T0 = round(fs / f0);
     numSamples = round(duration * fs);
-
     impulseSignal = zeros(1, numSamples);
     impulseSignal(1:T0:end) = 1;
+    % impulseSignal = gain * impulseSignal;
 
     t = (0:numSamples-1) / fs;
     sawtoothSignal = sawtooth(2 * pi * f0 * t);
-
+    % sawtoothSignal = gain * sawtoothSignal;
+    
     figure;
     subplot(2, 1, 1);
     timeAxis = (0:numSamples - 1) / fs;
@@ -26,11 +28,16 @@ function [synthesizedImpulse, synthesizedSawtooth] = synthesizeLPC(segment, fs, 
     ylabel('Amplitude');
     xlim([0, 0.05]);
 
+    originalPeak = max(abs(segment));
     synthesizedImpulse = filter(1, lpcCoeffs, impulseSignal);
+    synthesizedImpulsePeak = max(abs(synthesizedImpulse));
+    synthesizedImpulse = synthesizedImpulse * (originalPeak/ synthesizedImpulsePeak);
     sound(synthesizedImpulse, fs);
     pause(duration + 1);
 
     synthesizedSawtooth = filter(1, lpcCoeffs, sawtoothSignal);
+    synthesizedSawtoothPeak = max(abs(synthesizedSawtooth));
+    synthesizedSawtooth = synthesizedSawtooth * (originalPeak/ synthesizedSawtoothPeak);
     sound(synthesizedSawtooth, fs);
     pause(duration + 1);
 end

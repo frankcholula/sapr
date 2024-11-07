@@ -2,7 +2,6 @@ function [formants] = estimateFormants(segment, fs, lpcOrder)
     lpcCoeffs = lpc(segment, lpcOrder);
     poles = roots(lpcCoeffs);
     poles = poles(abs(poles) < 1 & imag(poles) ~= 0);
-
     angles = angle(poles);
     frequencies = abs(angles * (fs / (2 * pi)));
 
