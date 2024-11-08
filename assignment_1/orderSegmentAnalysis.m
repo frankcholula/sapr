@@ -5,7 +5,7 @@ function orderSegmentAnalysis(signal, fs, filename)
 
     for i = 1:length(segmentLengths_ms)
         segmentDuration = segmentLengths_ms(i) / 1000;
-        segment = extractCenterSegment(signal, fs, segmentDuration);
+        segment = extractCenterSegment(signal, fs, segmentDuration, filename);
         for j = 1:length(lpcOrders)
             order = lpcOrders(j);
             [~, predictionError] = lpc(segment, order);
