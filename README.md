@@ -5,23 +5,32 @@ The assignment 1 write-up can be found [here](https://www.notion.so/frankcholula
 If you are a **University of Surrey student**, you are welcome to use this project as a learning resource and reference for your coursework. A simple credit to the OC (wee! that's me, [Frank](https://frankcholula.notion.site/)) would be greatly appreciated. However, please note that submitting this work as your own academic assignment is not permitted and may lead to [academic misconduct penalties](https://www.surrey.ac.uk/office-student-complaints-appeals-and-regulation/academic-misconduct-and-appeals). Just make sure you're submitting your orignal work.
 
 ## Directory Layout
-The helper functions can be found in the `assignment_1` directory. The `speech` directory contains the audio files used in the assignment. The `speech_synthesis.mlx` file contains the MATLAB Live Script for the assignment.
+The helper functions can be found in the `assignment_1` directory. All the files ending in `.m` are MATLAB functions and the actual speech synthesis and analysis is done in the `speech_synthesis.mlx` file.
+
+The `speech` directory contains the audio files used in the assignment. The `synthesized_impulse` and `synthesized_sawtooth` directories contain the synthesized audio files.
+
 ```bash
-sapr
 ├── LICENSE
 ├── README.md
 └── assignment_1
+    ├── Speech Audio Processing Assignment.pdf
     ├── estimateF0ByAutoCorrelation.m
     ├── estimateF0ByPowerSpectrum.m
     ├── estimateFormants.m
     ├── extractCenterSegment.m
+    ├── orderAnalysis.m
+    ├── orderSegmentAnalysis.m
     ├── playAudio.m
     ├── plotLPCPoleZero.m
     ├── plotLPCResponse.m
+    ├── plotSpectrogram.m
     ├── plotSynthesis.m
+    ├── segmentAnalysis.m
     ├── speech
     ├── speech_synthesis.mlx
-    └── synthesizeLPC.m
+    ├── synthesizeLPC.m
+    ├── synthesized_impulse
+    └── synthesized_sawtooth
 ```
 
 ## License
