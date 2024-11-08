@@ -7,9 +7,9 @@ function [audio, fs, duration, numSamples] = playAudio(fileName)
     fprintf('Playing %s at %d Hz with duration %.2f seconds and %d samples\n',fileName, fs, duration, numSamples);
     
     figure();
-    % subplot(2,1,1);
-    % plotWaveform(audio, fs, fileName, numSamples, duration)
-    % subplot(2,1,2);
+    subplot(2,1,1);
+    plotWaveform(audio, fs, fileName, numSamples, duration)
+    subplot(2,1,2);
     plotPowerSpectrum(audio, fs, fileName, numSamples);
 end
 
