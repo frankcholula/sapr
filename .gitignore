@@ -167,6 +167,6 @@ cython_debug/
 # Matlab files
 *.asv
 
-# Notion exports
+# Notion exports and zipfiles
 notion_export/
-notion_export.zip
+*.zip
