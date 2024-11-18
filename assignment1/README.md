@@ -1,3 +1,4 @@
+# Speech Synthesis 🦜
 ## Directory Layout
 The helper functions can be found in the `assignment_1` directory. All the files ending in `.m` are MATLAB functions and the actual speech synthesis and analysis is done in the `speech_synthesis.mlx` file.
 
