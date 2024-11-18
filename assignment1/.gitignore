@@ -1,0 +1,6 @@
+# Matlab files
+*.asv
+
+# Notion exports and zipfiles
+notion_export/
+*.zip
