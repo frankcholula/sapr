@@ -1,4 +1,8 @@
 # Speech Synthesis 🦜
+You are asked to synthesize some vowels (monophthongs) using the source-filter model of speech production. The process involves:
+- Estimating the formant structure of each vowel directly from a real speech sample, using linear predictive coding (LPC)
+- Generating synthesized vowels by passing a periodic impulse train through the all-pole filter obtained
+
 ## Directory Layout
 The helper functions can be found in the `assignment_1` directory. All the files ending in `.m` are MATLAB functions and the actual speech synthesis and analysis is done in the `speech_synthesis.mlx` file.
 
