@@ -2,6 +2,7 @@ import librosa
 import numpy as np
 import os
 import logging
+import matplotlib.pyplot as plt
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -41,6 +42,20 @@ def extract_mfccs(input_folder: str, output_folder: str) -> str:
     return output_folder
 
 
+def load_mfcc(file_path: str) -> np.ndarray:
+    try:
+        return np.load(file_path)
+    except Exception as e:
+        logging.error(f"Failed to load MFCC from {file_path}: {str(e)}")
+        raise
+
+def plot_histogram(data: np.ndarray):
+    plt.hist(data.flatten(), bins=50)
+    plt.show()
+
+
 if __name__ == "__main__":
-    TRAINING_FOLDER = "dev_set"
-    extract_mfccs(TRAINING_FOLDER, "feature_set")
+    # TRAINING_FOLDER = "dev_set"
+    # extract_mfccs(TRAINING_FOLDER, "feature_set")
+    test_mfcc = load_mfcc("feature_set/sp01a_w01_heed.npy")
+    plot_histogram(test_mfcc)
