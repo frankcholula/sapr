@@ -1,7 +1,8 @@
 import numpy as np
 import pandas as pd
-import os
 from mfcc_extract import load_mfccs
+
+
 
 
 def calculate_means(feature_set: list[np.ndarray]) -> np.ndarray:
@@ -52,12 +53,73 @@ def create_covariance_matrix(variance: np.ndarray) -> np.ndarray:
 #     variance = ssd / count
 #     return variance
 
-feature_set = load_mfccs("feature_set")
-mean = calculate_means(feature_set)
-variance = calculate_variance(feature_set, mean)
-cov_matrix = create_covariance_matrix(variance)
 
-print(f"Covariance matrix:\n{cov_matrix.shape}")
+
+def initialize_transitions(feature_set: list[np.ndarray], num_states: int) -> np.ndarray:
+    # Step 1: Calculate total frames from all audio files
+    total_frames = sum(feature.shape[1] for feature in feature_set)
+    # Example: if you have 3 audio files with 100, 120, and 90 frames
+    # total_frames = 310
+    
+    # Step 2: Calculate average frames per state
+    # If num_states = 5, and you have 3 utterances:
+    # avg_frames_per_state = 310 / (3 * 5) ≈ 20.67 frames per state
+    avg_frames_per_state = total_frames / (len(feature_set) * num_states)
+    
+    # Step 3: Calculate self-loop probability using the formula
+    # If avg_frames_per_state = 20.67:
+    # aii = exp(-1 / (20.67 - 1)) ≈ 0.95
+    aii = np.exp(-1 / (avg_frames_per_state - 1))
+    
+    # Step 4: Create empty transition matrix
+    # For num_states = 5, creates 5x5 matrix of zeros
+    A = np.zeros((num_states + 2, num_states + 2))
+    
+    # Step 5: Fill transition matrix
+    for i in range(num_states + 2):
+        if i == 0:
+            A[i, i] = 0
+            A[i, i+1] = 1
+        if 0 < i < num_states - 1 + 2:
+            # For states 0 through 3:
+            A[i, i] = aii              # Self-loop probability (e.g., 0.95)
+            A[i, i+1] = 1 - aii        # Next state x (e.g., 0.05)         
+    return A
+
+
+def print_transition_matrix(A: np.ndarray, precision: int = 3) -> None:
+    """
+    Print a prettified version of the transition matrix.
+    
+    Args:
+        A: numpy array of transition probabilities
+        precision: number of decimal places to show (default 3)
+    """
+    n = A.shape[0]
+    
+    # Print header
+    print("\nTransition Matrix:")
+    print("─" * (n * 8 + 1))  # Unicode box drawing character
+    
+    # Print column headers
+    print("    │", end="")
+    for j in range(n):
+        print(f"  S{j:d}  ", end="")
+    print("\n" + "────┼" + "───────" * n)
+    
+    # Print matrix rows
+    for i in range(n):
+        print(f" S{i:d} │", end="")
+        for j in range(n):
+            val = A[i, j]
+            if val == 0:
+                print("  .   ", end="")
+            else:
+                print(f" {val:.{precision}f}", end="")
+        print()
+    
+    print("─" * (n * 8 + 1))
+
 
 
 
@@ -123,3 +185,13 @@ print(f"Covariance matrix:\n{cov_matrix.shape}")
 # for word, hmm in hmms.items():
 #     print(f"HMM for word '{word}':")
 #     print(f"Transition probabilities:\n{hmm.A}")
+
+
+if __name__ == "__main__":
+    feature_set = load_mfccs("feature_set")
+    mean = calculate_means(feature_set)
+    variance = calculate_variance(feature_set, mean)
+    cov_matrix = create_covariance_matrix(variance)
+
+    trans_matrix = initialize_transitions(feature_set, 8)
+    print_transition_matrix(trans_matrix)
