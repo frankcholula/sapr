@@ -21,7 +21,6 @@ def load_mfcc(directory_path):
             mfcc_features = np.load(file_path)  # Load the MFCC features
             feature_list.append(mfcc_features.flatten())
 
-    print(len(feature_list))
     return feature_list
 
 
@@ -42,19 +41,14 @@ def calculate_global_stats(directory_path):
     # Concatenate all features across the training set
     all_features = np.concatenate(feature_list, axis=0 )
 
-    print(len(all_features))
     # Compute global mean
     mean = np.mean(all_features, axis=0)
 
     # Compute diagonal covariance matrix
     variance = np.var(all_features, axis=0)
-    covariance = np.diag(variance)
 
     return mean, variance
 
-mfcc_array = load_mfcc("sapr-main/assignment2/feature_set")
-print(mfcc_array[0].shape)
-# print(f"mfcc array: {mfcc_array}")
 
 global_mean, global_variance = calculate_global_stats("sapr-main/assignment2/feature_set")
 
