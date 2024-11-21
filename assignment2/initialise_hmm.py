@@ -23,23 +23,35 @@ def calculate_means(feature_set: list[np.ndarray]) -> np.ndarray:
     mean = sum / count
     return mean
 
-def calculate_variance(feature_set: list[np.ndarray]) -> np.ndarray:
-    calculate_means(feature_set)
+def calculate_variance(feature_set: list[np.ndarray], mean: np.ndarray) -> np.ndarray:
+    """Calculate variance of MFCC features across all frames."""
     ssd = np.zeros(13)
-    counts = 0
+    count = 0
     for feature in feature_set:
-        print(len(feature))
-        # for window in feature:
-            # print(window.shape)
-        # for window in feature[1]:
-            # ssd += (window - mean) ** 2
-            # counts += 1
-    # variance = ssd / counts
-    # return variance
+        for frame_idx in range(feature.shape[1]):
+            ssd += (feature[:, frame_idx] - mean) ** 2
+            count += 1
+    variance = ssd / count
+    return variance
+
+# def calculate_variance(feature_set: list[np.ndarray], mean: np.ndarray) -> np.ndarray:
+#     """Calculate variance of MFCC features across all frames using vectorized operations."""
+#     ssd = np.zeros(13)
+#     count = 0
+#     for feature in feature_set:
+#         # mean is shape (13,), feature is shape (13, num_frames)
+#         # Broadcasting will subtract mean from each frame automatically
+#         ssd += np.sum((feature - mean[:, np.newaxis]) ** 2, axis=1)
+#         count += feature.shape[1]
+#     variance = ssd / count
+#     return variance
+
 feature_set = load_mfccs("feature_set")
 print(feature_set[0].shape)
 mean = calculate_means(feature_set)
-variance = calculate_variance(feature_set)
+variance = calculate_variance(feature_set, mean)
+
+print(f"Global variance: {variance}")
 
 # global_mean, global_variance = calculate_global_stats("sapr-main/assignment2/feature_set")
 
