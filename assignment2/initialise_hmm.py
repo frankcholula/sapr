@@ -39,6 +39,7 @@ def create_covariance_matrix(variance: np.ndarray) -> np.ndarray:
     """Create a diagonal covariance matrix from the variance vector."""
     return np.diag(variance)
 
+# Alternative way to do variance
 # def calculate_variance(feature_set: list[np.ndarray], mean: np.ndarray) -> np.ndarray:
 #     """Calculate variance of MFCC features across all frames using vectorized operations."""
 #     ssd = np.zeros(13)
@@ -59,10 +60,6 @@ cov_matrix = create_covariance_matrix(variance)
 print(f"Covariance matrix:\n{cov_matrix.shape}")
 
 
-# global_mean, global_variance = calculate_global_stats("sapr-main/assignment2/feature_set")
-
-# print(f"Global mean: {global_mean}")
-# print(f"Global variance: {global_variance}")
 
 # #---------------------------------
 
