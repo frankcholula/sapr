@@ -49,6 +49,23 @@ def load_mfcc(file_path: str) -> np.ndarray:
         logging.error(f"Failed to load MFCC from {file_path}: {str(e)}")
         raise
 
+def load_mfccs(directory_path: str) -> list[np.ndarray]:
+    """
+    Load all MFCC feature files from a directory.
+
+    Parameters:
+        directory_path (str): Path to the directory containing MFCC files (.npy).
+
+    Returns:
+        feature_list (list of np.ndarray): List of MFCC feature arrays.
+    """
+    feature_list = []
+    for file_name in os.listdir(directory_path):
+        if file_name.endswith('.npy'):  # Check if the file is a NumPy file
+            file_path = os.path.join(directory_path, file_name)
+            feature_list.append(load_mfcc(file_path))
+
+    return feature_list
 def plot_histogram(data: np.ndarray):
     plt.hist(data.flatten(), bins=50)
     plt.show()

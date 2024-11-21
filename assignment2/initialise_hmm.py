@@ -1,30 +1,10 @@
 import numpy as np
+import pandas as pd
 import os
+from mfcc_extract import load_mfccs
 
 
-
-def load_mfcc(directory_path):
-    """
-    Load all MFCC feature files from a directory.
-
-    Parameters:
-        directory_path (str): Path to the directory containing MFCC files (.npy).
-
-    Returns:
-        feature_list (list of np.ndarray): List of MFCC feature arrays.
-    """
-    feature_list = []
-
-    for file_name in os.listdir(directory_path):
-        if file_name.endswith('.npy'):  # Check if the file is a NumPy file
-            file_path = os.path.join(directory_path, file_name)
-            mfcc_features = np.load(file_path)  # Load the MFCC features
-            feature_list.append(mfcc_features.flatten())
-
-    return feature_list
-
-
-def calculate_global_stats(directory_path):
+def calculate_means(feature_set: list[np.ndarray]) -> np.ndarray:
     """
     Calculate global mean and covariance (diagonal) from MFCC files in a directory.
 
@@ -35,26 +15,36 @@ def calculate_global_stats(directory_path):
         mean (np.ndarray): Global mean (13-dimensional).
         covariance (np.ndarray): Diagonal covariance matrix (13x13).
     """
-    # Load all MFCCs
-    feature_list = load_mfcc(directory_path)
+    sum = np.zeros(13)
+    count = 0
+    for feature in feature_set:
+        sum += np.sum(feature, axis=1)
+        count += feature.shape[1]
+    mean = sum / count
+    return mean
 
-    # Concatenate all features across the training set
-    all_features = np.concatenate(feature_list, axis=0 )
+def calculate_variance(feature_set: list[np.ndarray]) -> np.ndarray:
+    calculate_means(feature_set)
+    ssd = np.zeros(13)
+    counts = 0
+    for feature in feature_set:
+        print(len(feature))
+        # for window in feature:
+            # print(window.shape)
+        # for window in feature[1]:
+            # ssd += (window - mean) ** 2
+            # counts += 1
+    # variance = ssd / counts
+    # return variance
+feature_set = load_mfccs("feature_set")
+print(feature_set[0].shape)
+mean = calculate_means(feature_set)
+variance = calculate_variance(feature_set)
 
-    # Compute global mean
-    mean = np.mean(all_features, axis=0)
+# global_mean, global_variance = calculate_global_stats("sapr-main/assignment2/feature_set")
 
-    # Compute diagonal covariance matrix
-    variance = np.var(all_features, axis=0)
-
-    return mean, variance
-
-
-global_mean, global_variance = calculate_global_stats("sapr-main/assignment2/feature_set")
-
-
-print(f"Global mean: {global_mean}")
-print(f"Global variance: {global_variance}")
+# print(f"Global mean: {global_mean}")
+# print(f"Global variance: {global_variance}")
 
 # #---------------------------------
 
