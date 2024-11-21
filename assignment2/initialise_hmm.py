@@ -58,21 +58,14 @@ def create_covariance_matrix(variance: np.ndarray) -> np.ndarray:
 def initialize_transitions(feature_set: list[np.ndarray], num_states: int) -> np.ndarray:
     # Step 1: Calculate total frames from all audio files
     total_frames = sum(feature.shape[1] for feature in feature_set)
-    # Example: if you have 3 audio files with 100, 120, and 90 frames
-    # total_frames = 310
     
     # Step 2: Calculate average frames per state
-    # If num_states = 5, and you have 3 utterances:
-    # avg_frames_per_state = 310 / (3 * 5) ≈ 20.67 frames per state
     avg_frames_per_state = total_frames / (len(feature_set) * num_states)
     
     # Step 3: Calculate self-loop probability using the formula
-    # If avg_frames_per_state = 20.67:
-    # aii = exp(-1 / (20.67 - 1)) ≈ 0.95
     aii = np.exp(-1 / (avg_frames_per_state - 1))
     
     # Step 4: Create empty transition matrix
-    # For num_states = 5, creates 5x5 matrix of zeros
     A = np.zeros((num_states + 2, num_states + 2))
     
     # Step 5: Fill transition matrix
@@ -119,72 +112,6 @@ def print_transition_matrix(A: np.ndarray, precision: int = 3) -> None:
         print()
     
     print("─" * (n * 8 + 1))
-
-
-
-
-# #---------------------------------
-
-# class HMM:
-#     def __init__(self, num_states, num_features, global_mean, global_variance):
-#         """
-#         Initialize a prototype HMM with flat-start parameters.
-
-#         Parameters:
-#             num_states: Number of states in the HMM.
-#             num_features: Number of MFCC coefficients.
-#             global_mean: Global mean vector for MFCC features.
-#             global_variance: Global variance vector for MFCC features.
-#         """
-#         self.num_states = num_states
-#         self.num_features = num_features
-
-#         # Initialize transition probabilities (uniform flat start)
-#         self.A = np.full((num_states, num_states), 1 / num_states)
-
-#         # Initialize state probabilities (uniform flat start)
-#         self.pi = np.full(num_states, 1 / num_states)
-
-#         # Initialize Gaussian emission probabilities (global mean and variance)
-#         self.mean = np.tile(global_mean, (num_states, 1))
-#         self.variance = np.tile(global_variance, (num_states, 1))
-
-# num_states = 8  # Number of states for each HMM
-# num_features = 13  # Dimensionality of MFCCs
-# word_hmm = HMM(num_states, num_features, global_mean, global_variance)
-
-# print(f"Transition probabilities:\n{word_hmm.A}")
-# print(f"Emission mean for each state:\n{word_hmm.mean}")
-# print(f"Emission variance for each state:\n{word_hmm.variance}")
-
-# #---------------------------------------
-
-# def initialize_hmms(vocabulary, num_states, num_features, global_mean, global_variance):
-#     """
-#     Initialize HMMs for a list of words in the vocabulary.
-
-#     Parameters:
-#         vocabulary: List of word labels.
-#         num_states: Number of states for each HMM.
-#         num_features: Number of MFCC coefficients.
-#         global_mean: Global mean vector for MFCC features.
-#         global_variance: Global variance vector for MFCC features.
-
-#     Returns:
-#         hmms: Dictionary of word -> HMM.
-#     """
-#     hmms = {}
-#     for word in vocabulary:
-#         hmms[word] = HMM(num_states, num_features, global_mean, global_variance)
-#     return hmms
-
-
-# vocabulary = ["heed", "hid", "head", "had", "hard", "hud", "hod", "hoard", "hood", "who'd", "heard"]
-# hmms = initialize_hmms(vocabulary, num_states=5, num_features=13, global_mean=global_mean, global_variance=global_variance)
-
-# for word, hmm in hmms.items():
-#     print(f"HMM for word '{word}':")
-#     print(f"Transition probabilities:\n{hmm.A}")
 
 
 if __name__ == "__main__":
