@@ -34,6 +34,11 @@ def calculate_variance(feature_set: list[np.ndarray], mean: np.ndarray) -> np.nd
     variance = ssd / count
     return variance
 
+
+def create_covariance_matrix(variance: np.ndarray) -> np.ndarray:
+    """Create a diagonal covariance matrix from the variance vector."""
+    return np.diag(variance)
+
 # def calculate_variance(feature_set: list[np.ndarray], mean: np.ndarray) -> np.ndarray:
 #     """Calculate variance of MFCC features across all frames using vectorized operations."""
 #     ssd = np.zeros(13)
@@ -47,11 +52,12 @@ def calculate_variance(feature_set: list[np.ndarray], mean: np.ndarray) -> np.nd
 #     return variance
 
 feature_set = load_mfccs("feature_set")
-print(feature_set[0].shape)
 mean = calculate_means(feature_set)
 variance = calculate_variance(feature_set, mean)
+cov_matrix = create_covariance_matrix(variance)
 
-print(f"Global variance: {variance}")
+print(f"Covariance matrix:\n{cov_matrix.shape}")
+
 
 # global_mean, global_variance = calculate_global_stats("sapr-main/assignment2/feature_set")
 
