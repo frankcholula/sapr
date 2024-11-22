@@ -66,6 +66,32 @@ def load_mfccs(directory_path: str) -> list[np.ndarray]:
             feature_list.append(load_mfcc(file_path))
 
     return feature_list
+
+def load_mfcc_class(directory_path: str, class_num: int) -> list[np.ndarray]:
+    """
+    Load one class of MFCC feature files from a directory.
+
+    Parameters:
+    directory_path (str): Path to the directory containing MFCC files (.npy).
+    class_name (int): Class number
+
+    Returns:
+    feature_list (list of np.ndarray): List of MFCC feature arrays.
+    """
+    feature_list = []
+    if class_num < 10:
+        class_label = 'w0' + str(class_num)
+    else:
+        class_label = 'w' + str(class_num)
+    for file_name in os.listdir(directory_path):
+        if file_name.endswith('.npy'):  # Check if the file is a NumPy file
+            if class_label == file_name.split('_')[1]:
+                file_path = os.path.join(directory_path, file_name)
+                feature_list.append(load_mfcc(file_path))
+
+    return feature_list
+
+
 def plot_histogram(data: np.ndarray):
     plt.hist(data.flatten(), bins=50)
     plt.show()
