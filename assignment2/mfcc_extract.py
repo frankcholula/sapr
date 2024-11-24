@@ -2,9 +2,9 @@ import librosa
 import numpy as np
 import os
 import logging
-import matplotlib.pyplot as plt
 
 logging.basicConfig(level=logging.DEBUG)
+logging.getLogger("numba").setLevel(logging.WARNING)
 
 
 def extract_mfcc(audio_path: str) -> np.ndarray:
@@ -77,11 +77,6 @@ def load_mfccs(directory_path: str) -> list[np.ndarray]:
             feature_list.append(load_mfcc(file_path))
 
     return feature_list
-
-
-def plot_histogram(data: np.ndarray):
-    plt.hist(data.flatten(), bins=50)
-    plt.show()
 
 
 if __name__ == "__main__":

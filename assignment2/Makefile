@@ -6,4 +6,4 @@ extract:
 
 .PHONY: test
 test:
-	python -m unittest tests/test_mfcc_extract.py
+	pytest -s --log-disable=root
