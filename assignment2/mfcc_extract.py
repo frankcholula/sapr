@@ -85,7 +85,5 @@ def plot_histogram(data: np.ndarray):
 
 
 if __name__ == "__main__":
-    # TRAINING_FOLDER = "dev_set"
-    # extract_mfccs(TRAINING_FOLDER, "feature_set")
-    test_mfcc = load_mfcc("feature_set/sp01a_w01_heed.npy")
-    plot_histogram(test_mfcc)
+    TRAINING_FOLDER = "dev_set"
+    extract_mfccs(TRAINING_FOLDER, "feature_set")
