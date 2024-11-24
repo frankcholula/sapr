@@ -10,7 +10,17 @@ logging.basicConfig(level=logging.DEBUG)
 def extract_mfcc(audio_path: str) -> np.ndarray:
     try:
         y, sr = librosa.load(audio_path)
-        mfcc = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=13)
+        frame_length = 0.03 * sr
+        hop_length = 0.01 * sr
+        mfcc = librosa.feature.mfcc(
+            y=y,
+            sr=sr,
+            n_mfcc=13,
+            win_length=int(frame_length),
+            hop_length=int(hop_length),
+            window="hamming",
+            center=True,
+        )
         return mfcc
     except Exception as e:
         logging.error(f"Error processing {audio_path}: {str(e)}")
@@ -49,6 +59,7 @@ def load_mfcc(file_path: str) -> np.ndarray:
         logging.error(f"Failed to load MFCC from {file_path}: {str(e)}")
         raise
 
+
 def load_mfccs(directory_path: str) -> list[np.ndarray]:
     """
     Load all MFCC feature files from a directory.
@@ -61,18 +72,20 @@ def load_mfccs(directory_path: str) -> list[np.ndarray]:
     """
     feature_list = []
     for file_name in os.listdir(directory_path):
-        if file_name.endswith('.npy'):  # Check if the file is a NumPy file
+        if file_name.endswith(".npy"):  # Check if the file is a NumPy file
             file_path = os.path.join(directory_path, file_name)
             feature_list.append(load_mfcc(file_path))
 
     return feature_list
+
+
 def plot_histogram(data: np.ndarray):
     plt.hist(data.flatten(), bins=50)
     plt.show()
 
 
 if __name__ == "__main__":
-    # TRAINING_FOLDER = "dev_set"
-    # extract_mfccs(TRAINING_FOLDER, "feature_set")
-    test_mfcc = load_mfcc("feature_set/sp01a_w01_heed.npy")
-    plot_histogram(test_mfcc)
+    TRAINING_FOLDER = "dev_set"
+    extract_mfccs(TRAINING_FOLDER, "feature_set")
+    # test_mfcc = load_mfcc("feature_set/sp01a_w01_heed.npy")
+    # plot_histogram(test_mfcc)
