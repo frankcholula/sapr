@@ -32,27 +32,24 @@ def calculate_variance(feature_set: list[np.ndarray], mean: np.ndarray) -> np.nd
     return variance
 
 
-def initialize_transitions(
-    feature_set: list[np.ndarray], num_states: int
-) -> np.ndarray:
-    # Calculate total frames from all audio files
+def initialize_transitions(feature_set: list[np.ndarray], num_states: int) -> np.ndarray:
     total_frames = sum(feature.shape[1] for feature in feature_set)
-
-    # Calculate average frames per state
     avg_frames_per_state = total_frames / (len(feature_set) * num_states)
 
-    # Calculate self-loop probability using the formula
+    # self-loop probability    
     aii = np.exp(-1 / (avg_frames_per_state - 1))
-
-    # Fill transition matrix
-    A = np.zeros((num_states + 2, num_states + 2))
-    for i in range(num_states + 2):
-        if i == 0:
-            A[i, i] = 0
-            A[i, i + 1] = 1
-        if 0 < i < num_states - 1 + 2:
-            A[i, i] = aii
-            A[i, i + 1] = 1 - aii
+    aij = 1 - aii 
+    
+    # Create transition matrix (including entry and exit states)
+    total_states = num_states + 2
+    A = np.zeros((total_states, total_states))
+    
+    # Entry state (index 0)
+    A[0, 1] = 1.0
+    
+    for i in range(1, num_states + 1):
+        A[i, i] = aii
+        A[i, i + 1] = aij
     return A
 
 
@@ -73,6 +70,9 @@ def print_transition_matrix(A: np.ndarray, precision: int = 3) -> None:
     print("\nTransition Matrix:")
     print(df.round(precision))
 
+
+# class HMM:
+#     def __init__(self, num_states: int, num_)
 
 if __name__ == "__main__":
     feature_set = load_mfccs("feature_set")

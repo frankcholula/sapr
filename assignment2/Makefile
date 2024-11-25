@@ -1,4 +1,4 @@
-all: extract
+all: extract init
 
 .PHONY: extract
 extract:
