@@ -108,7 +108,6 @@ class HMM:
         print(df.round(precision))
 
     def print_emission_parameters(self, precision: int = 3) -> None:
-
         # Print means
         print("\nMeans (each column is a state, each row is an MFCC coefficient):")
         means_df = pd.DataFrame(
