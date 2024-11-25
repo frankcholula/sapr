@@ -58,30 +58,20 @@ def initialize_transitions(
 
 def print_transition_matrix(A: np.ndarray, precision: int = 3) -> None:
     """
-    Print a prettified version of the transition matrix.
+    Print the transition matrix using pandas DataFrame for better formatting.
     """
     n = A.shape[0]
+    df = pd.DataFrame(
+        A, 
+        columns=[f'S{i}' for i in range(n)],
+        index=[f'S{i}' for i in range(n)]
+    )
+    
+    # Replace zeros with dots for cleaner visualization
+    df = df.replace(0, '.')
+    
     print("\nTransition Matrix:")
-    print("─" * (n * 8 + 1))
-
-    # Print column headers
-    print("    │", end="")
-    for j in range(n):
-        print(f"  S{j:d}  ", end="")
-    print("\n" + "────┼" + "───────" * n)
-
-    # Print matrix rows
-    for i in range(n):
-        print(f" S{i:d} │", end="")
-        for j in range(n):
-            val = A[i, j]
-            if val == 0:
-                print("  .   ", end="")
-            else:
-                print(f" {val:.{precision}f}", end="")
-        print()
-
-    print("─" * (n * 8 + 1))
+    print(df.round(precision))
 
 
 if __name__ == "__main__":
