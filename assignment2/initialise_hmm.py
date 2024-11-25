@@ -81,16 +81,15 @@ class HMM:
 
     def print_parameters(self):
         print("HMM Parameters:")
-        print(f"N (states): {self.num_states}")
-        print(f"M (observation dim): {self.num_obs}")
+        print(f"\nN (states): {self.num_states}")
+        print(f"\nM (observation dim): {self.num_obs}")
 
-        print("π (initial state distribution):")
-        print(self.pi.round(3))
+        print(f"\nπ (initial state distribution): {self.pi.round(3)}")
 
-        print("A (transition matrix):")
+        print("\nA (transition matrix):")
         self.print_transition_matrix()
 
-        print("B (emission parameters):")
+        print("\nB (emission parameters):")
         self.print_emission_parameters()
 
     def print_transition_matrix(self, precision: int = 3) -> None:
