@@ -25,12 +25,13 @@ class HMM:
     def init_parameters(self, feature_set: list[np.ndarray]) -> None:
         self.mean = self.calculate_means(feature_set)
         self.variance = self.calculate_variance(feature_set, self.mean)
-        self.cov_matrix = self.create_covariance_matrix(self.variance)
         self.A = self.initialize_transitions(feature_set, self.num_states)
         self.B = {
             "mean": np.tile(self.mean[:, np.newaxis], (1, self.num_states)),
             "covariance": np.tile(self.variance[:, np.newaxis], (1, self.num_states)),
         }
+        assert self.B["mean"].shape == (self.num_obs, self.num_states)
+        assert self.B["covariance"].shape == (self.num_obs, self.num_states)
 
     def calculate_means(self, feature_set: list[np.ndarray]) -> np.ndarray:
         """
@@ -90,8 +91,7 @@ class HMM:
         self.print_transition_matrix()
 
         print("B (emission parameters):")
-        print(f"Mean shape: {self.B['mean'].shape}")
-        print(f"Covariance shape: {self.B['covariance'].shape}")
+        self.print_emission_parameters()
 
     def print_transition_matrix(self, precision: int = 3) -> None:
         """
@@ -107,6 +107,26 @@ class HMM:
         # Replace zeros with dots for cleaner visualization
         df = df.replace(0, ".")
         print(df.round(precision))
+
+    def print_emission_parameters(self, precision: int = 3) -> None:
+
+        # Print means
+        print("\nMeans (each column is a state, each row is an MFCC coefficient):")
+        means_df = pd.DataFrame(
+            self.B["mean"],
+            columns=[f"State {i+1}" for i in range(self.num_states)],
+            index=[f"MFCC {i+1}" for i in range(self.num_obs)],
+        )
+        print(means_df.round(precision))
+
+        # Print covariances
+        print("\nVariances (each column is a state, each row is an MFCC coefficient):")
+        cov_df = pd.DataFrame(
+            self.B["covariance"],
+            columns=[f"State {i+1}" for i in range(self.num_states)],
+            index=[f"MFCC {i+1}" for i in range(self.num_obs)],
+        )
+        print(cov_df.round(precision))
 
 
 if __name__ == "__main__":
