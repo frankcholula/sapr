@@ -207,12 +207,18 @@ if __name__ == "__main__":
     #print(model["covariances"][0].shape)
     new_alpha = forward_algorithm(observations,model["A"],model["means"],model["covariances"])
     new_beta = backward_algorithm(observations,model["A"],model["means"],model["covariances"])
+    # print(new_beta[:, 0])
+    # print(new_beta[:, 7])
+
+    # TODO: use this as a test case to check forward and backward are working. 
+    print(multivariate_gaussian(observations[:, 0], model["means"][0], model["covariances"][0]) * new_beta[0, 0])
+    print(model["A"][-2, -1] * new_alpha[-1, 7])
+    
     #print(new_a)
-    #print(new_beta)
-    new_model = baum_welch(class_one_trial,model,1)
-    print(new_model["A"])
-    print(new_model["means"])
-    print(new_model["covariances"])
+    # new_model = baum_welch(class_one_trial,model,1)
+    # print(new_model["A"])
+    # print(new_model["means"])
+    # print(new_model["covariances"])
 # observations, A, means, covariances, pi)
 # states = [0, 1, 0, 2, 1]  # Hidden states
 # observations = feature_set[0]  # Observed sequence (indices into emission matrix)
