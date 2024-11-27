@@ -11,3 +11,7 @@ init:
 .PHONY: test
 test:
 	@pytest -s --log-disable=root
+
+.PHONY: train
+train:
+	@python hmm.py

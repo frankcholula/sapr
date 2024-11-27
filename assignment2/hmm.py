@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+from mfcc_extract import load_mfccs
 
 
 class HMM:
@@ -124,3 +125,27 @@ class HMM:
             index=[f"MFCC {i+1}" for i in range(self.num_obs)],
         )
         print(cov_df.round(precision))
+
+    def compute_emission_probability(self, features: np.ndarray) -> np.ndarray:
+        """
+        Compute the emission probability of an observation given the current model.
+        """
+        T = features.shape[1]
+        B_probs = np.zeros((self.num_states, T))
+
+        for j in range(self.num_states):
+            diff = features - self.B["mean"][:, j:j+1]
+            mahalanobis_squared = diff ** 2 / self.B["covariance"][:, j:j+1]
+            exponent = -0.5 * np.sum(mahalanobis_squared, axis=0)
+            determinant = np.prod(self.B["covariance"][:, j])
+            normalization = np.sqrt((2 * np.pi) ** self.num_obs * determinant)
+            B_probs[j] = np.exp(exponent) / normalization
+        return B_probs
+
+
+if __name__ == "__main__":
+    feature_set = load_mfccs("feature_set")
+    hmm = HMM(8, 13, feature_set)
+    print(feature_set[0].shape)
+    b_probs = hmm.compute_emission_probability(feature_set[0])
+    print(b_probs.shape)
