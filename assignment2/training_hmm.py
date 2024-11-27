@@ -1,8 +1,8 @@
 import numpy as np
-import initialise_hmm as init
+import hmm as init
 from mfcc_extract import load_mfcc_class
 from mfcc_extract import load_mfccs
-
+from hmm import HMM
 
 
 def multivariate_gaussian(x, mean, covariance):
@@ -190,8 +190,9 @@ if __name__ == "__main__":
     class_one_trial = load_mfcc_class(TRAINING_FOLDER, class_num)
     
     feature_set = load_mfccs(TRAINING_FOLDER)
-   
-
+    
+    # class_one_hmm = HMM(num_states, 13, feature_set)
+    # class_one_hmm.print_parameters()
     global_mean = init.calculate_means(feature_set)
     global_covariance_matrix = init.create_covariance_matrix(init.calculate_variance(feature_set,global_mean))
     self_loop_prob = init.intialize_transition_prob(feature_set, num_states)
