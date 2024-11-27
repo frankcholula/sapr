@@ -134,18 +134,37 @@ class HMM:
         B_probs = np.zeros((self.num_states, T))
 
         for j in range(self.num_states):
-            diff = features - self.B["mean"][:, j:j+1]
-            mahalanobis_squared = diff ** 2 / self.B["covariance"][:, j:j+1]
+            diff = features - self.B["mean"][:, j : j + 1]
+            mahalanobis_squared = diff**2 / self.B["covariance"][:, j : j + 1]
             exponent = -0.5 * np.sum(mahalanobis_squared, axis=0)
             determinant = np.prod(self.B["covariance"][:, j])
             normalization = np.sqrt((2 * np.pi) ** self.num_obs * determinant)
             B_probs[j] = np.exp(exponent) / normalization
         return B_probs
 
+    def forward(self, B_probs: np.ndarray) -> np.ndarray:
+        """
+        Compute the forward probabilities of the HMM.
+        """
+        T = B_probs.shape[1]
+        alpha = np.zeros((self.num_states, T))
+
+        # Initialization
+        alpha[:, 0] = self.pi[1:-1] * B_probs[:, 0]
+
+        # Induction
+        for t in range(1, T):
+            for j in range(self.num_states):
+                alpha[j, t] = (
+                    np.sum(alpha[:, t - 1] * self.A[1:-1, j + 1]) * B_probs[j, t]
+                )
+        return alpha
+
 
 if __name__ == "__main__":
     feature_set = load_mfccs("feature_set")
     hmm = HMM(8, 13, feature_set)
-    print(feature_set[0].shape)
     b_probs = hmm.compute_emission_probability(feature_set[0])
     print(b_probs.shape)
+    alpha = hmm.forward(b_probs)
+    print(alpha)
