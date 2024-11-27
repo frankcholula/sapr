@@ -147,7 +147,7 @@ class HMM:
         return emission_matrix
     
     def compute_log_emission_matrix(self, features: np.ndarray) -> np.ndarray:
-        emission_matrix = self.compute_emission_pdf(features)
+        emission_matrix = self.compute_emission_matrix(features)
         return np.log(emission_matrix)
 
     def forward(self, emission_matrix: np.ndarray) -> np.ndarray:
@@ -173,7 +173,7 @@ class HMM:
 if __name__ == "__main__":
     feature_set = load_mfccs("feature_set")
     hmm = HMM(8, 13, feature_set)
-    emission_matrix = hmm.compute_emission_matrix(feature_set[0])
+    emission_matrix = hmm.compute_log_emission_matrix(feature_set[0])
     print(emission_matrix.shape)
     # alpha = hmm.forward(b_probs)
     # print(alpha)
