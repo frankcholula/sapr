@@ -12,8 +12,16 @@ numpy = "1.26.4"
 librosa = "^0.10.2.post1"
 matplotlib = "^3.9.2"
 pandas = "^2.2.3"
+pytest = "^8.3.3"
 
 
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.pytest.ini_options]
+log_cli = true
+log_cli_level = "DEBUG"
+pythonpath = [
+  ".", "assignment2"
+]
