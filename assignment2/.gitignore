@@ -1,3 +1,4 @@
 # Dataset files
 *.zip
 *_set/
+.vscode/
