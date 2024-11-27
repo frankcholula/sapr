@@ -130,12 +130,12 @@ class HMM:
         )
         print(cov_df.round(precision))
 
-    def compute_emission_probability(self, features: np.ndarray) -> np.ndarray:
+    def compute_emission_matrix(self, features: np.ndarray) -> np.ndarray:
         """
-        Compute the emission probability of an observation given the current model.
+        Compute the emission matrix B using a 13-dimensional multivariate Gaussian.
         """
         T = features.shape[1]
-        B_probs = np.zeros((self.num_states, T))
+        emission_matrix = np.zeros((self.num_states, T))
 
         for j in range(self.num_states):
             diff = features - self.B["mean"][:, j : j + 1]
@@ -143,34 +143,37 @@ class HMM:
             exponent = -0.5 * np.sum(mahalanobis_squared, axis=0)
             determinant = np.prod(self.B["covariance"][:, j])
             normalization = np.sqrt((2 * np.pi) ** self.num_obs * determinant)
-            B_probs[j] = np.exp(exponent) / normalization
-        return B_probs
+            emission_matrix[j] = np.exp(exponent) / normalization
+        return emission_matrix
+    
+    def compute_log_emission_matrix(self, features: np.ndarray) -> np.ndarray:
+        emission_matrix = self.compute_emission_pdf(features)
+        return np.log(emission_matrix)
 
-    def forward(self, B_probs: np.ndarray) -> np.ndarray:
+    def forward(self, emission_matrix: np.ndarray) -> np.ndarray:
         """
         Compute the forward probabilities of the HMM.
         """
-        T = B_probs.shape[1]
+        T = emission_matrix.shape[1]
         alpha = np.zeros((self.num_states, T))
-        alpha[0, 0] = B_probs[0, 0]
+        alpha[0, 0] = emission_matrix[0, 0]
 
         # Induction
         for t in range(1, T):
             for j in range(self.num_states):
                 if j == 0:
                     # First state only gets self-loop from A[1,1]
-                    alpha[j, t] = alpha[j, t-1] * self.A[1, 1] * B_probs[j, t]
+                    alpha[j, t] = alpha[j, t-1] * self.A[1, 1] * emission_matrix[j, t]
                 else:
                     # Other states get input from previous state and self-loop
                     alpha[j, t] = (alpha[j-1, t-1] * self.A[j+1, j+2] + 
-                                alpha[j, t-1] * self.A[j+1, j+1]) * B_probs[j, t]
+                                alpha[j, t-1] * self.A[j+1, j+1]) * emission_matrix[j, t]
         return alpha
 
 if __name__ == "__main__":
     feature_set = load_mfccs("feature_set")
     hmm = HMM(8, 13, feature_set)
-    # hmm.print_transition_matrix()
-    b_probs = hmm.compute_emission_probability(feature_set[0])
-    # print(b_probs)
+    emission_matrix = hmm.compute_emission_matrix(feature_set[0])
+    print(emission_matrix.shape)
     # alpha = hmm.forward(b_probs)
     # print(alpha)
