@@ -146,8 +146,6 @@ class HMM:
             emission_matrix[j] = np.exp(exponent) / normalization
         return emission_matrix
 
-
-
     def compute_log_emission_matrix(self, features: np.ndarray) -> np.ndarray:
         emission_matrix = self.compute_emission_matrix(features)
         return np.log(emission_matrix)
@@ -158,63 +156,54 @@ class HMM:
 
         Args:
             emission_matrix: Emission probabilities of shape (num_states, T)
-                            Only includes real states (not entry/exit)
+                            Only includes real states (not entry/exit).
+            use_log: Whether to compute probabilities in log space.
         Returns:
             alpha: Forward probabilities of shape (num_states + 2, T)
-                    Includes entry state (0) and exit state (num_states + 1)
+                Includes entry state (0) and exit state (num_states + 1).
         """
         T = emission_matrix.shape[1]  # Number of time steps
+
         if use_log:
             alpha = np.full((self.num_states + 2, T), -np.inf)
-        else:
-            alpha = np.zeros((self.num_states + 2, T))
 
-        # Initialize t=0
-        if use_log:
+            # Initialize t=0
             alpha[0, 0] = -np.inf
             alpha[1, 0] = np.log(self.A[0, 1]) + emission_matrix[0, 0]
-        else:
-            # We start in entry state (0) and can only transition to first real state (1)
-            # Entry state probability is 0 since we don't start there at t=0
-            alpha[0, 0] = 0
-            # First real state gets probability from entry transition * emission
-            alpha[1, 0] = self.A[0, 1] * emission_matrix[0, 0]
-            # All other states have 0 probability at t=0
-            # (already handled by numpy zeros initialization)
 
-        # Forward recursion
-        for t in range(1, T):
-            # Entry state (0) - always 0 probability after t=0
-            if use_log:
-                alpha[0, t] = -np.inf
-            else:
-                alpha[0, t] = 0
+            # Forward recursion
+            for t in range(1, T):
+                alpha[0, t] = -np.inf  # Entry state always -inf after t=0
 
-            # Real states (1 to 8)
-            for j in range(1, self.num_states + 1):
-                if use_log:
-                    # Log domain: use log sum exp for adding probabilities
+                for j in range(1, self.num_states + 1):
                     from_prev = alpha[j - 1, t - 1] + np.log(self.A[j - 1, j])
                     self_loop = alpha[j, t - 1] + np.log(self.A[j, j])
-                    # logaddexp handles adding probabilities in log domain
                     alpha[j, t] = (
                         np.logaddexp(from_prev, self_loop) + emission_matrix[j - 1, t]
                     )
-                else:
-                    # Two possibilities:
-                    # 1. Come from previous state j-1 through forward transition
-                    # 2. Stay in same state j through self-loop
+
+                # Exit state (num_states + 1) - can only come from last real state
+                alpha[-1, t] = alpha[-2, t - 1] + np.log(self.A[-2, -1])
+
+        else:
+            alpha = np.zeros((self.num_states + 2, T))
+
+            # Initialize t=0
+            alpha[0, 0] = 0
+            alpha[1, 0] = self.A[0, 1] * emission_matrix[0, 0]
+
+            # Forward recursion
+            for t in range(1, T):
+                alpha[0, t] = 0  # Entry state always 0 after t=0
+
+                for j in range(1, self.num_states + 1):
                     from_prev = alpha[j - 1, t - 1] * self.A[j - 1, j]
                     self_loop = alpha[j, t - 1] * self.A[j, j]
-                    # Total probability = (prev + self_loop) * emission
-                    # Note: emission_matrix[j-1] because emission matrix is 0-based
                     alpha[j, t] = (from_prev + self_loop) * emission_matrix[j - 1, t]
 
-            # Exit state (9) - can only come from last real state (8)
-            if use_log:
-                alpha[-1, t] = alpha[-2, t - 1] + np.log(self.A[-2, -1])
-            else:
+                # Exit state (num_states + 1) - can only come from last real state
                 alpha[-1, t] = alpha[-2, t - 1] * self.A[-2, -1]
+
         return alpha
 
     def backward(self, emission_matrix: np.ndarray, use_log=True) -> np.ndarray:
@@ -236,18 +225,30 @@ class HMM:
 
             # Initialize t=T-1
             for j in range(self.num_states + 1):  # states 0 to 8
-                beta[j, T-1] = np.log(self.A[j, -1])
-            beta[-1, T-1] = -np.inf  # Exit state stays at -inf
+                beta[j, T - 1] = np.log(self.A[j, -1])
+            beta[-1, T - 1] = -np.inf  # Exit state stays at -inf
 
             # Backward recursion
-            for t in range(T-2, -1, -1):  # Go from T-2 down to 0
+            for t in range(T - 2, -1, -1):  # Go from T-2 down to 0
                 beta[-1, t] = -np.inf  # Exit state stays at -inf
                 for j in range(self.num_states + 1):
                     if j == self.num_states:  # State 8
-                        beta[j, t] = beta[j, t+1] + np.log(self.A[j, j]) + emission_matrix[j-1, t+1]
+                        beta[j, t] = (
+                            beta[j, t + 1]
+                            + np.log(self.A[j, j])
+                            + emission_matrix[j - 1, t + 1]
+                        )
                     else:
-                        self_loop = beta[j, t+1] + np.log(self.A[j, j]) + emission_matrix[j, t+1]
-                        to_next = beta[j+1, t+1] + np.log(self.A[j, j+1]) + emission_matrix[j, t+1]
+                        self_loop = (
+                            beta[j, t + 1]
+                            + np.log(self.A[j, j])
+                            + emission_matrix[j, t + 1]
+                        )
+                        to_next = (
+                            beta[j + 1, t + 1]
+                            + np.log(self.A[j, j + 1])
+                            + emission_matrix[j, t + 1]
+                        )
                         beta[j, t] = np.logaddexp(self_loop, to_next)
 
         else:
@@ -255,25 +256,36 @@ class HMM:
 
             # Initialize t=T-1
             for j in range(self.num_states + 1):  # states 0 to 8
-                beta[j, T-1] = self.A[j, -1]
-            beta[-1, T-1] = 0  # Exit state stays at 0
+                beta[j, T - 1] = self.A[j, -1]
+            beta[-1, T - 1] = 0  # Exit state stays at 0
 
             # Backward recursion
-            for t in range(T-2, -1, -1):  # Go from T-2 down to 0
+            for t in range(T - 2, -1, -1):  # Go from T-2 down to 0
                 beta[-1, t] = 0  # Exit state stays at 0
                 for j in range(self.num_states + 1):
                     if j == self.num_states:  # State 8
-                        beta[j, t] = beta[j, t+1] * self.A[j, j] * emission_matrix[j-1, t+1]
+                        beta[j, t] = (
+                            beta[j, t + 1]
+                            * self.A[j, j]
+                            * emission_matrix[j - 1, t + 1]
+                        )
                     else:
-                        self_loop = beta[j, t+1] * self.A[j, j] * emission_matrix[j, t+1]
-                        to_next = beta[j+1, t+1] * self.A[j, j+1] * emission_matrix[j, t+1]
+                        self_loop = (
+                            beta[j, t + 1] * self.A[j, j] * emission_matrix[j, t + 1]
+                        )
+                        to_next = (
+                            beta[j + 1, t + 1]
+                            * self.A[j, j + 1]
+                            * emission_matrix[j, t + 1]
+                        )
                         beta[j, t] = self_loop + to_next
 
         return beta
+
     def print_matrix(self, matrix: np.ndarray, title: str) -> None:
         """
         Prints a given matrix with a formatted title, column headers, and row indices.
-        
+
         Parameters:
             matrix (np.ndarray): The matrix to be printed.
             title (str): The title to display above the matrix.
