@@ -160,7 +160,7 @@ class HMM:
         return np.log(emission_matrix)
         
 
-    def forward(self, emission_matrix: np.ndarray) -> np.ndarray:
+    def forward(self, emission_matrix: np.ndarray, use_log=True) -> np.ndarray:
         """
         Compute forward probabilities α(t,j) including entry and exit states.
 
@@ -172,37 +172,57 @@ class HMM:
                     Includes entry state (0) and exit state (num_states + 1)
         """
         T = emission_matrix.shape[1]  # Number of time steps
-        alpha = np.zeros((self.num_states + 2, T))  # 10 states for our case
+        if use_log:
+            alpha = np.full((self.num_states + 2, T), -np.inf)
+        else:
+            alpha = np.zeros((self.num_states + 2, T))  # 10 states for our case
 
         # Initialize t=0
-        # We start in entry state (0) and can only transition to first real state (1)
-        # Entry state probability is 0 since we don't start there at t=0
-        alpha[0, 0] = 0
-        # First real state gets probability from entry transition * emission
-        alpha[1, 0] = self.A[0, 1] * emission_matrix[0, 0]
-        # All other states have 0 probability at t=0
-        # (already handled by numpy zeros initialization)
+        if use_log:
+            alpha[0, 0] = -np.inf
+            alpha[1, 0] = np.log(self.A[0, 1]) + emission_matrix[0, 0]
+        else:
+            # We start in entry state (0) and can only transition to first real state (1)
+            # Entry state probability is 0 since we don't start there at t=0
+            alpha[0, 0] = 0
+            # First real state gets probability from entry transition * emission
+            alpha[1, 0] = self.A[0, 1] * emission_matrix[0, 0]
+            # All other states have 0 probability at t=0
+            # (already handled by numpy zeros initialization)
 
         # Forward recursion
         for t in range(1, T):
             # Entry state (0) - always 0 probability after t=0
-            alpha[0, t] = 0
+            if use_log:
+                alpha[0, t] = -np.inf
+            else:
+                alpha[0, t] = 0
 
             # Real states (1 to 8)
             for j in range(1, self.num_states + 1):
-                # Two possibilities:
-                # 1. Come from previous state j-1 through forward transition
-                # 2. Stay in same state j through self-loop
-                from_prev = alpha[j - 1, t - 1] * self.A[j - 1, j]
-                self_loop = alpha[j, t - 1] * self.A[j, j]
-
-                # Total probability = (prev + self_loop) * emission
-                # Note: emission_matrix[j-1] because emission matrix is 0-based
-                alpha[j, t] = (from_prev + self_loop) * emission_matrix[j - 1, t]
+                if use_log:
+                    # Log domain: use log sum exp for adding probabilities
+                    from_prev = alpha[j-1, t-1] + np.log(self.A[j-1, j])
+                    self_loop = alpha[j, t-1] + np.log(self.A[j, j])
+                    # logaddexp handles adding probabilities in log domain
+                    alpha[j, t] = np.logaddexp(from_prev, self_loop) + emission_matrix[j-1, t]
+                else:
+                    # Two possibilities:
+                    # 1. Come from previous state j-1 through forward transition
+                    # 2. Stay in same state j through self-loop
+                    from_prev = alpha[j-1, t-1] * self.A[j-1, j]
+                    self_loop = alpha[j, t-1] * self.A[j, j]
+                    # Total probability = (prev + self_loop) * emission
+                    # Note: emission_matrix[j-1] because emission matrix is 0-based
+                    alpha[j, t] = (from_prev + self_loop) * emission_matrix[j - 1, t]
 
             # Exit state (9) - can only come from last real state (8)
-            alpha[-1, t] = alpha[-2, t - 1] * self.A[-2, -1]
-        return alpha
+            if use_log:
+                alpha[-1, t] = alpha[-2, t-1] + np.log(self.A[-2, -1])
+            else:
+                alpha[-1, t] = alpha[-2, t-1] * self.A[-2, -1]
+            return alpha
+
 
     def print_alpha(self, alpha: np.ndarray) -> None:
         print("\nForward Probabilities:")
@@ -217,8 +237,12 @@ if __name__ == "__main__":
     feature_set = load_mfccs("feature_set")
     hmm = HMM(8, 13, feature_set)
     emission_matrix = hmm.compute_emission_matrix(feature_set[0])
+    hmm.print_emission_matrix(emission_matrix)
     log_emission_matrix = hmm.compute_log_emission_matrix(feature_set[0])
     hmm.print_emission_matrix(log_emission_matrix)
-    alpha = hmm.forward(emission_matrix)
+    alpha_log = hmm.forward(log_emission_matrix, use_log=True)
+    alpha = hmm.forward(emission_matrix, use_log=False)
+    hmm.print_alpha(alpha_log)
     hmm.print_alpha(alpha)
 
+    hmm.print_transition_matrix()
