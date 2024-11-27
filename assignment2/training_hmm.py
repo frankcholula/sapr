@@ -140,6 +140,7 @@ def baum_welch(observations_list, model, max_iters=10):
                         xi[t, i, j] = alpha[t-1, i] * A[i + 1, j + 1] * \
                                       multivariate_gaussian(observations[:, t], means[j], covariances[j]) * \
                                       beta[t, j]
+                print(np.sum(xi[t, :, :]))
                 xi[t, :, :] /= np.sum(xi[t, :, :])  # Normalize
 
             # Accumulate transition matrix updates
@@ -215,7 +216,7 @@ if __name__ == "__main__":
     print(model["A"][-2, -1] * new_alpha[-1, 7])
     
     #print(new_a)
-    # new_model = baum_welch(class_one_trial,model,1)
+    new_model = baum_welch(class_one_trial,model,1)
     # print(new_model["A"])
     # print(new_model["means"])
     # print(new_model["covariances"])
