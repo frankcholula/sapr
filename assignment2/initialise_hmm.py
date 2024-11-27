@@ -54,6 +54,20 @@ def create_covariance_matrix(variance: np.ndarray) -> np.ndarray:
 #     return variance
 
 
+
+def intialize_transition_prob(feature_set: list[np.ndarray], num_states: int) -> float:
+    total_frames = sum(feature.shape[1] for feature in feature_set)
+
+    # Step 2: Calculate average frames per state
+    avg_frames_per_state = total_frames / (len(feature_set) * num_states)
+
+    # Step 3: Calculate self-loop probability using the formula
+    aii = np.exp(-1 / (avg_frames_per_state - 1))
+    return aii
+
+    
+
+
 def initialize_transitions(
     feature_set: list[np.ndarray], num_states: int
 ) -> np.ndarray:
