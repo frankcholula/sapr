@@ -152,23 +152,25 @@ class HMM:
         """
         T = B_probs.shape[1]
         alpha = np.zeros((self.num_states, T))
-
-        # Initialization
-        alpha[:, 0] = self.pi[1:-1] * B_probs[:, 0]
+        alpha[0, 0] = B_probs[0, 0]
 
         # Induction
         for t in range(1, T):
             for j in range(self.num_states):
-                alpha[j, t] = (
-                    np.sum(alpha[:, t - 1] * self.A[1:-1, j + 1]) * B_probs[j, t]
-                )
+                if j == 0:
+                    # First state only gets self-loop from A[1,1]
+                    alpha[j, t] = alpha[j, t-1] * self.A[1, 1] * B_probs[j, t]
+                else:
+                    # Other states get input from previous state and self-loop
+                    alpha[j, t] = (alpha[j-1, t-1] * self.A[j+1, j+2] + 
+                                alpha[j, t-1] * self.A[j+1, j+1]) * B_probs[j, t]
         return alpha
-
 
 if __name__ == "__main__":
     feature_set = load_mfccs("feature_set")
     hmm = HMM(8, 13, feature_set)
+    # hmm.print_transition_matrix()
     b_probs = hmm.compute_emission_probability(feature_set[0])
-    print(b_probs.shape)
-    alpha = hmm.forward(b_probs)
-    print(alpha)
+    # print(b_probs)
+    # alpha = hmm.forward(b_probs)
+    # print(alpha)
