@@ -25,6 +25,10 @@ class HMM:
     def init_parameters(self, feature_set: list[np.ndarray]) -> None:
         self.mean = self.calculate_means(feature_set)
         self.variance = self.calculate_variance(feature_set, self.mean)
+       # Add variance floor 
+        var_floor = 0.01 * np.mean(self.variance)
+        self.variance = np.maximum(self.variance, var_floor)
+        
         self.A = self.initialize_transitions(feature_set, self.num_states)
         self.B = {
             "mean": np.tile(self.mean[:, np.newaxis], (1, self.num_states)),
