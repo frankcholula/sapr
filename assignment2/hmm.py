@@ -226,7 +226,7 @@ class HMM:
             # Initialize t=T-1
             for j in range(self.num_states + 1):  # states 0 to 8
                 if self.A[j, -1] == 0:
-                    beta[j, T - 1] = -np.inf # -inf if no transition to exit state
+                    beta[j, T - 1] = -np.inf  # -inf if no transition to exit state
                 else:
                     beta[j, T - 1] = np.log(self.A[j, -1])
             beta[-1, T - 1] = -np.inf  # Exit state stays at -inf
@@ -237,7 +237,7 @@ class HMM:
                 for j in range(self.num_states + 1):
                     if j == self.num_states:  # State 8
                         if self.A[j, j] == 0:
-                            beta[j, t] = -np.inf # -inf if no self-loop
+                            beta[j, t] = -np.inf  # -inf if no self-loop
                         else:
                             beta[j, t] = (
                                 beta[j, t + 1]
@@ -293,6 +293,36 @@ class HMM:
                         beta[j, t] = self_loop + to_next
 
         return beta
+
+    def compute_gamma(
+        self, alpha: np.ndarray, beta: np.ndarray, use_log=True
+    ) -> np.ndarray:
+        """
+        Compute state occupation likelihood γ(t,j) for each state j and time t.
+
+        Args:
+            alpha: Forward probabilities of shape (num_states + 2, T)
+            beta: Backward probabilities of shape (num_states + 2, T)
+            use_log: Whether probabilities are in log space
+
+        Returns:
+            gamma: State occupation likelihoods of shape (num_states, T)
+                  Only includes real states (not entry/exit)
+        """
+        if use_log:
+            # Sum alpha and beta in log space
+            log_gamma = alpha + beta
+            # Compute normalization term for each time step
+            log_norm = np.logaddexp.reduce(log_gamma, axis=0)
+            # Normalize (subtract in log space = divide in normal space)
+            log_gamma = log_gamma - log_norm
+            # Convert back to normal space and return only real states
+            gamma = np.exp(log_gamma[1:-1])
+        else:
+            gamma = alpha * beta
+            gamma = gamma / np.sum(gamma, axis=0)
+            gamma = gamma[1:-1]
+        return gamma
 
     def print_matrix(self, matrix: np.ndarray, title: str) -> None:
         """

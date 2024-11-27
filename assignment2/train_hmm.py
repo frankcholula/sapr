@@ -9,5 +9,6 @@ if __name__ == "__main__":
     hmm.print_transition_matrix()
     alpha_log = hmm.forward(log_emission_matrix, use_log=True)
     beta_log = hmm.backward(log_emission_matrix, use_log=True)
-    hmm.print_matrix(alpha_log, "Log Forward Matrix")
-    hmm.print_matrix(beta_log, "Log Backward Matrix")
+    gamma_log = hmm.compute_gamma(alpha_log, beta_log)
+    hmm.print_matrix(gamma_log, "Gamma Matrix")
+
