@@ -25,10 +25,10 @@ class HMM:
     def init_parameters(self, feature_set: list[np.ndarray]) -> None:
         self.mean = self.calculate_means(feature_set)
         self.variance = self.calculate_variance(feature_set, self.mean)
-       # Add variance floor 
+        # Add variance floor
         var_floor = 0.01 * np.mean(self.variance)
         self.variance = np.maximum(self.variance, var_floor)
-        
+
         self.A = self.initialize_transitions(feature_set, self.num_states)
         self.B = {
             "mean": np.tile(self.mean[:, np.newaxis], (1, self.num_states)),
@@ -145,35 +145,80 @@ class HMM:
             normalization = np.sqrt((2 * np.pi) ** self.num_obs * determinant)
             emission_matrix[j] = np.exp(exponent) / normalization
         return emission_matrix
-    
+
+    def print_emission_matrix(self, emission_matrix: np.ndarray) -> None:
+        print("\nEmission Matrix:")
+        df = pd.DataFrame(
+            emission_matrix,
+            columns=[f"T{i+1}" for i in range(emission_matrix.shape[1])],
+            index=[f"State {i+1}" for i in range(emission_matrix.shape[0])],
+        )
+        print(df)
+
     def compute_log_emission_matrix(self, features: np.ndarray) -> np.ndarray:
         emission_matrix = self.compute_emission_matrix(features)
         return np.log(emission_matrix)
+        
 
     def forward(self, emission_matrix: np.ndarray) -> np.ndarray:
         """
-        Compute the forward probabilities of the HMM.
-        """
-        T = emission_matrix.shape[1]
-        alpha = np.zeros((self.num_states, T))
-        alpha[0, 0] = emission_matrix[0, 0]
+        Compute forward probabilities α(t,j) including entry and exit states.
 
-        # Induction
+        Args:
+            emission_matrix: Emission probabilities of shape (num_states, T)
+                            Only includes real states (not entry/exit)
+        Returns:
+            alpha: Forward probabilities of shape (num_states + 2, T)
+                    Includes entry state (0) and exit state (num_states + 1)
+        """
+        T = emission_matrix.shape[1]  # Number of time steps
+        alpha = np.zeros((self.num_states + 2, T))  # 10 states for our case
+
+        # Initialize t=0
+        # We start in entry state (0) and can only transition to first real state (1)
+        # Entry state probability is 0 since we don't start there at t=0
+        alpha[0, 0] = 0
+        # First real state gets probability from entry transition * emission
+        alpha[1, 0] = self.A[0, 1] * emission_matrix[0, 0]
+        # All other states have 0 probability at t=0
+        # (already handled by numpy zeros initialization)
+
+        # Forward recursion
         for t in range(1, T):
-            for j in range(self.num_states):
-                if j == 0:
-                    # First state only gets self-loop from A[1,1]
-                    alpha[j, t] = alpha[j, t-1] * self.A[1, 1] * emission_matrix[j, t]
-                else:
-                    # Other states get input from previous state and self-loop
-                    alpha[j, t] = (alpha[j-1, t-1] * self.A[j+1, j+2] + 
-                                alpha[j, t-1] * self.A[j+1, j+1]) * emission_matrix[j, t]
+            # Entry state (0) - always 0 probability after t=0
+            alpha[0, t] = 0
+
+            # Real states (1 to 8)
+            for j in range(1, self.num_states + 1):
+                # Two possibilities:
+                # 1. Come from previous state j-1 through forward transition
+                # 2. Stay in same state j through self-loop
+                from_prev = alpha[j - 1, t - 1] * self.A[j - 1, j]
+                self_loop = alpha[j, t - 1] * self.A[j, j]
+
+                # Total probability = (prev + self_loop) * emission
+                # Note: emission_matrix[j-1] because emission matrix is 0-based
+                alpha[j, t] = (from_prev + self_loop) * emission_matrix[j - 1, t]
+
+            # Exit state (9) - can only come from last real state (8)
+            alpha[-1, t] = alpha[-2, t - 1] * self.A[-2, -1]
         return alpha
+
+    def print_alpha(self, alpha: np.ndarray) -> None:
+        print("\nForward Probabilities:")
+        df = pd.DataFrame(
+            alpha,
+            columns=[f"T{i+1}" for i in range(alpha.shape[1])],
+            index=[f"State {i}" for i in range(alpha.shape[0])],
+        )
+        print(df)
 
 if __name__ == "__main__":
     feature_set = load_mfccs("feature_set")
     hmm = HMM(8, 13, feature_set)
-    emission_matrix = hmm.compute_log_emission_matrix(feature_set[0])
-    print(emission_matrix.shape)
-    # alpha = hmm.forward(b_probs)
-    # print(alpha)
+    emission_matrix = hmm.compute_emission_matrix(feature_set[0])
+    log_emission_matrix = hmm.compute_log_emission_matrix(feature_set[0])
+    hmm.print_emission_matrix(log_emission_matrix)
+    alpha = hmm.forward(emission_matrix)
+    hmm.print_alpha(alpha)
+
