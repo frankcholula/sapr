@@ -225,7 +225,10 @@ class HMM:
 
             # Initialize t=T-1
             for j in range(self.num_states + 1):  # states 0 to 8
-                beta[j, T - 1] = np.log(self.A[j, -1])
+                if self.A[j, -1] == 0:
+                    beta[j, T - 1] = -np.inf # -inf if no transition to exit state
+                else:
+                    beta[j, T - 1] = np.log(self.A[j, -1])
             beta[-1, T - 1] = -np.inf  # Exit state stays at -inf
 
             # Backward recursion
@@ -233,11 +236,14 @@ class HMM:
                 beta[-1, t] = -np.inf  # Exit state stays at -inf
                 for j in range(self.num_states + 1):
                     if j == self.num_states:  # State 8
-                        beta[j, t] = (
-                            beta[j, t + 1]
-                            + np.log(self.A[j, j])
-                            + emission_matrix[j - 1, t + 1]
-                        )
+                        if self.A[j, j] == 0:
+                            beta[j, t] = -np.inf # -inf if no self-loop
+                        else:
+                            beta[j, t] = (
+                                beta[j, t + 1]
+                                + np.log(self.A[j, j])
+                                + emission_matrix[j - 1, t + 1]
+                            )
                     else:
                         self_loop = (
                             beta[j, t + 1]
