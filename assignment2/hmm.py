@@ -221,7 +221,7 @@ class HMM:
                 alpha[-1, t] = alpha[-2, t-1] + np.log(self.A[-2, -1])
             else:
                 alpha[-1, t] = alpha[-2, t-1] * self.A[-2, -1]
-            return alpha
+        return alpha
 
 
     def print_alpha(self, alpha: np.ndarray) -> None:
@@ -236,13 +236,13 @@ class HMM:
 if __name__ == "__main__":
     feature_set = load_mfccs("feature_set")
     hmm = HMM(8, 13, feature_set)
-    emission_matrix = hmm.compute_emission_matrix(feature_set[0])
-    hmm.print_emission_matrix(emission_matrix)
+    # emission_matrix = hmm.compute_emission_matrix(feature_set[0])
+    # hmm.print_emission_matrix(emission_matrix)
     log_emission_matrix = hmm.compute_log_emission_matrix(feature_set[0])
-    hmm.print_emission_matrix(log_emission_matrix)
+    # hmm.print_emission_matrix(log_emission_matrix)
     alpha_log = hmm.forward(log_emission_matrix, use_log=True)
-    alpha = hmm.forward(emission_matrix, use_log=False)
     hmm.print_alpha(alpha_log)
-    hmm.print_alpha(alpha)
+    # alpha = hmm.forward(emission_matrix, use_log=False)
+    # hmm.print_alpha(alpha)
 
-    hmm.print_transition_matrix()
+    # hmm.print_transition_matrix()
