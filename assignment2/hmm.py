@@ -245,16 +245,22 @@ class HMM:
                                 + emission_matrix[j - 1, t + 1]
                             )
                     else:
-                        self_loop = (
-                            beta[j, t + 1]
-                            + np.log(self.A[j, j])
-                            + emission_matrix[j, t + 1]
-                        )
-                        to_next = (
-                            beta[j + 1, t + 1]
-                            + np.log(self.A[j, j + 1])
-                            + emission_matrix[j, t + 1]
-                        )
+                        if self.A[j, j] == 0:
+                            self_loop = -np.inf
+                        else:
+                            self_loop = (
+                                beta[j, t + 1]
+                                + np.log(self.A[j, j])
+                                + emission_matrix[j, t + 1]
+                            )
+                        if self.A[j, j + 1] == 0:
+                            to_next = -np.inf
+                        else:
+                            to_next = (
+                                beta[j + 1, t + 1]
+                                + np.log(self.A[j, j + 1])
+                                + emission_matrix[j, t + 1]
+                            )
                         beta[j, t] = np.logaddexp(self_loop, to_next)
 
         else:
