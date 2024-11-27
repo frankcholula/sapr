@@ -146,19 +146,11 @@ class HMM:
             emission_matrix[j] = np.exp(exponent) / normalization
         return emission_matrix
 
-    def print_emission_matrix(self, emission_matrix: np.ndarray) -> None:
-        print("\nEmission Matrix:")
-        df = pd.DataFrame(
-            emission_matrix,
-            columns=[f"T{i+1}" for i in range(emission_matrix.shape[1])],
-            index=[f"State {i+1}" for i in range(emission_matrix.shape[0])],
-        )
-        print(df)
+
 
     def compute_log_emission_matrix(self, features: np.ndarray) -> np.ndarray:
         emission_matrix = self.compute_emission_matrix(features)
         return np.log(emission_matrix)
-        
 
     def forward(self, emission_matrix: np.ndarray, use_log=True) -> np.ndarray:
         """
@@ -175,7 +167,7 @@ class HMM:
         if use_log:
             alpha = np.full((self.num_states + 2, T), -np.inf)
         else:
-            alpha = np.zeros((self.num_states + 2, T))  # 10 states for our case
+            alpha = np.zeros((self.num_states + 2, T))
 
         # Initialize t=0
         if use_log:
@@ -202,41 +194,106 @@ class HMM:
             for j in range(1, self.num_states + 1):
                 if use_log:
                     # Log domain: use log sum exp for adding probabilities
-                    from_prev = alpha[j-1, t-1] + np.log(self.A[j-1, j])
-                    self_loop = alpha[j, t-1] + np.log(self.A[j, j])
+                    from_prev = alpha[j - 1, t - 1] + np.log(self.A[j - 1, j])
+                    self_loop = alpha[j, t - 1] + np.log(self.A[j, j])
                     # logaddexp handles adding probabilities in log domain
-                    alpha[j, t] = np.logaddexp(from_prev, self_loop) + emission_matrix[j-1, t]
+                    alpha[j, t] = (
+                        np.logaddexp(from_prev, self_loop) + emission_matrix[j - 1, t]
+                    )
                 else:
                     # Two possibilities:
                     # 1. Come from previous state j-1 through forward transition
                     # 2. Stay in same state j through self-loop
-                    from_prev = alpha[j-1, t-1] * self.A[j-1, j]
-                    self_loop = alpha[j, t-1] * self.A[j, j]
+                    from_prev = alpha[j - 1, t - 1] * self.A[j - 1, j]
+                    self_loop = alpha[j, t - 1] * self.A[j, j]
                     # Total probability = (prev + self_loop) * emission
                     # Note: emission_matrix[j-1] because emission matrix is 0-based
                     alpha[j, t] = (from_prev + self_loop) * emission_matrix[j - 1, t]
 
             # Exit state (9) - can only come from last real state (8)
             if use_log:
-                alpha[-1, t] = alpha[-2, t-1] + np.log(self.A[-2, -1])
+                alpha[-1, t] = alpha[-2, t - 1] + np.log(self.A[-2, -1])
             else:
-                alpha[-1, t] = alpha[-2, t-1] * self.A[-2, -1]
+                alpha[-1, t] = alpha[-2, t - 1] * self.A[-2, -1]
         return alpha
 
+    def backward(self, emission_matrix: np.ndarray, use_log=True) -> np.ndarray:
+        """
+        Compute backward probabilities β(t,j) including entry and exit states.
 
-    def print_alpha(self, alpha: np.ndarray) -> None:
-        print("\nForward Probabilities:")
+        Args:
+            emission_matrix: Emission probabilities of shape (num_states, T)
+                            Only includes real states (not entry/exit).
+            use_log: Whether to compute probabilities in log space.
+        Returns:
+            beta: Backward probabilities of shape (num_states + 2, T)
+                Includes entry state (0) and exit state (num_states + 1).
+        """
+        T = emission_matrix.shape[1]  # Number of time steps
+
+        if use_log:
+            beta = np.full((self.num_states + 2, T), -np.inf)
+
+            # Initialize t=T-1
+            for j in range(self.num_states + 1):  # states 0 to 8
+                beta[j, T-1] = np.log(self.A[j, -1])
+            beta[-1, T-1] = -np.inf  # Exit state stays at -inf
+
+            # Backward recursion
+            for t in range(T-2, -1, -1):  # Go from T-2 down to 0
+                beta[-1, t] = -np.inf  # Exit state stays at -inf
+                for j in range(self.num_states + 1):
+                    if j == self.num_states:  # State 8
+                        beta[j, t] = beta[j, t+1] + np.log(self.A[j, j]) + emission_matrix[j-1, t+1]
+                    else:
+                        self_loop = beta[j, t+1] + np.log(self.A[j, j]) + emission_matrix[j, t+1]
+                        to_next = beta[j+1, t+1] + np.log(self.A[j, j+1]) + emission_matrix[j, t+1]
+                        beta[j, t] = np.logaddexp(self_loop, to_next)
+
+        else:
+            beta = np.zeros((self.num_states + 2, T))
+
+            # Initialize t=T-1
+            for j in range(self.num_states + 1):  # states 0 to 8
+                beta[j, T-1] = self.A[j, -1]
+            beta[-1, T-1] = 0  # Exit state stays at 0
+
+            # Backward recursion
+            for t in range(T-2, -1, -1):  # Go from T-2 down to 0
+                beta[-1, t] = 0  # Exit state stays at 0
+                for j in range(self.num_states + 1):
+                    if j == self.num_states:  # State 8
+                        beta[j, t] = beta[j, t+1] * self.A[j, j] * emission_matrix[j-1, t+1]
+                    else:
+                        self_loop = beta[j, t+1] * self.A[j, j] * emission_matrix[j, t+1]
+                        to_next = beta[j+1, t+1] * self.A[j, j+1] * emission_matrix[j, t+1]
+                        beta[j, t] = self_loop + to_next
+
+        return beta
+    def print_matrix(self, matrix: np.ndarray, title: str) -> None:
+        """
+        Prints a given matrix with a formatted title, column headers, and row indices.
+        
+        Parameters:
+            matrix (np.ndarray): The matrix to be printed.
+            title (str): The title to display above the matrix.
+        """
+        print(f"\n{title}:")
         df = pd.DataFrame(
-            alpha,
-            columns=[f"T{i+1}" for i in range(alpha.shape[1])],
-            index=[f"State {i}" for i in range(alpha.shape[0])],
+            matrix,
+            columns=[f"T{i+1}" for i in range(matrix.shape[1])],
+            index=[f"State {i+1}" for i in range(matrix.shape[0])],
         )
         print(df)
+
 
 if __name__ == "__main__":
     feature_set = load_mfccs("feature_set")
     hmm = HMM(8, 13, feature_set)
     log_emission_matrix = hmm.compute_log_emission_matrix(feature_set[0])
-    hmm.print_emission_matrix(log_emission_matrix)
+    hmm.print_matrix(log_emission_matrix, "Log Emission Matrix")
+    hmm.print_transition_matrix()
     alpha_log = hmm.forward(log_emission_matrix, use_log=True)
-    hmm.print_alpha(alpha_log)
+    beta_log = hmm.backward(log_emission_matrix, use_log=True)
+    hmm.print_matrix(alpha_log, "Log Forward Matrix")
+    hmm.print_matrix(beta_log, "Log Backward Matrix")
