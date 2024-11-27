@@ -236,13 +236,7 @@ class HMM:
 if __name__ == "__main__":
     feature_set = load_mfccs("feature_set")
     hmm = HMM(8, 13, feature_set)
-    # emission_matrix = hmm.compute_emission_matrix(feature_set[0])
-    # hmm.print_emission_matrix(emission_matrix)
     log_emission_matrix = hmm.compute_log_emission_matrix(feature_set[0])
-    # hmm.print_emission_matrix(log_emission_matrix)
+    hmm.print_emission_matrix(log_emission_matrix)
     alpha_log = hmm.forward(log_emission_matrix, use_log=True)
     hmm.print_alpha(alpha_log)
-    # alpha = hmm.forward(emission_matrix, use_log=False)
-    # hmm.print_alpha(alpha)
-
-    # hmm.print_transition_matrix()
