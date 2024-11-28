@@ -48,3 +48,17 @@ def test_fb_probabilities(hmm_model, feature_set):
     print(f"\nTest 1: {test1}")
     print(f"\nTest 2: {test2}")
     print(f"\nDifference: {abs(test1 - test2)}")
+
+
+def test_gamma_xi_probabilities(hmm_model, feature_set):
+    emission_matrix = hmm_model.compute_log_emission_matrix(feature_set[0])
+    alpha = hmm_model.forward(emission_matrix, use_log=True)
+    beta = hmm_model.backward(emission_matrix, use_log=True)
+    gamma = hmm_model.compute_gamma(alpha, beta)
+    xi = hmm_model.compute_xi(alpha, beta, emission_matrix)
+    assert xi.shape == (emission_matrix.shape[1] - 1, hmm_model.num_states, hmm_model.num_states)
+    assert gamma.shape == (hmm_model.num_states, feature_set[0].shape[1])
+    xi_summed = np.sum(xi, axis=2).T
+    hmm_model.print_matrix(gamma, "Gamma Matrix")
+    hmm_model.print_matrix(xi_summed, "Summed Xi Matrix", col="State", idx="State")
+    np.testing.assert_array_almost_equal(gamma[:, :-1], xi_summed)

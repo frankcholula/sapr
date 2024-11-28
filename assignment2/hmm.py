@@ -1,6 +1,9 @@
 import numpy as np
 import pandas as pd
 from mfcc_extract import load_mfccs
+import logging
+
+logging.basicConfig(level=logging.INFO)
 
 
 class HMM:
@@ -324,7 +327,59 @@ class HMM:
             gamma = gamma[1:-1]
         return gamma
 
-    def print_matrix(self, matrix: np.ndarray, title: str) -> None:
+    def compute_xi(
+        self,
+        alpha: np.ndarray,
+        beta: np.ndarray,
+        emission_matrix: np.ndarray,
+        use_log=True,
+    ) -> np.ndarray:
+        """Calculate the probability of transitioning between states at each time step."""
+        T = alpha.shape[1]
+        xi = np.zeros((T - 1, self.num_states, self.num_states))
+
+        # Helper function to compute transition probability
+        def compute_transition_prob(t, i, j):
+            """Calculate probability of transitioning from state i to j at time t.
+               xi(t,i,j) = [alpha(t,i) * a_ij * b_j(O_t+1) * beta(t+1,j)] / P(O|lambda)
+            """
+            if use_log:
+                prob = (
+                    alpha[i + 1, t]  # Being in state i
+                    + np.log(self.A[i + 1, j + 1])  # Transitioning to state j
+                    + emission_matrix[j, t + 1]  # Observing next symbol in state j
+                    + beta[j + 1, t + 1]  # Future observations from state j
+                    - np.logaddexp.reduce(alpha[:, -1])
+                )  # Normalize by total probability
+                return np.exp(prob)
+            else:
+                return (
+                    alpha[i + 1, t]
+                    * self.A[i + 1, j + 1]
+                    * emission_matrix[j, t + 1]
+                    * beta[j + 1, t + 1]
+                ) / np.sum(alpha[:, -1])
+
+        # Calculate probabilities for each time step
+        for t in range(T - 1):
+            for i in range(self.num_states):
+                # Only compute allowed transitions in left-right HMM:
+                # 1. Self-transition (stay in same state)
+                xi[t, i, i] = compute_transition_prob(t, i, i)
+
+                # 2. Forward transition (move to next state)
+                if i < self.num_states - 1:
+                    xi[t, i, i + 1] = compute_transition_prob(t, i, i + 1)
+
+            # Normalize probabilities at each time step
+            if np.sum(xi[t]) > 0:  # Avoid division by zero
+                xi[t] = xi[t] / np.sum(xi[t])
+
+        return xi
+
+    def print_matrix(
+        self, matrix: np.ndarray, title: str, col="T", idx="State"
+    ) -> None:
         """
         Prints a given matrix with a formatted title, column headers, and row indices.
 
@@ -332,10 +387,13 @@ class HMM:
             matrix (np.ndarray): The matrix to be printed.
             title (str): The title to display above the matrix.
         """
-        print(f"\n{title}:")
-        df = pd.DataFrame(
-            matrix,
-            columns=[f"T{i+1}" for i in range(matrix.shape[1])],
-            index=[f"State {i+1}" for i in range(matrix.shape[0])],
-        )
-        print(df)
+        if matrix.ndim == 2:
+            print(f"\n{title}:")
+            df = pd.DataFrame(
+                matrix,
+                columns=[f"{col} {i+1}" for i in range(matrix.shape[1])],
+                index=[f"{idx} {i+1}" for i in range(matrix.shape[0])],
+            )
+            print (df)
+        else:
+            logging.warning("Method only supports 2D matrices.")
