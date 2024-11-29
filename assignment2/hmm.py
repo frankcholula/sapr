@@ -401,7 +401,7 @@ class HMM:
                     self.A[i+1, i+1] = 1.0
 
     def print_matrix(
-        self, matrix: np.ndarray, title: str, col="T", idx="State"
+        self, matrix: np.ndarray, title: str, col="T", idx="State", start_idx=0, start_col=0
     ) -> None:
         """
         Prints a given matrix with a formatted title, column headers, and row indices.
@@ -414,8 +414,8 @@ class HMM:
             print(f"\n{title}:")
             df = pd.DataFrame(
                 matrix,
-                columns=[f"{col} {i}" for i in range(matrix.shape[1])],
-                index=[f"{idx} {i}" for i in range(matrix.shape[0])],
+                columns=[f"{col} {i + start_col}" for i in range(matrix.shape[1])],
+                index=[f"{idx} {i + start_idx}" for i in range(matrix.shape[0])],
             )
             print(df)
         else:
