@@ -10,4 +10,9 @@ if __name__ == "__main__":
     beta = hmm.backward(emission_matrix, use_log=True)
     gamma = hmm.compute_gamma(alpha, beta)
     xi = hmm.compute_xi(alpha, beta, emission_matrix)
+    # hmm.print_matrix(emission_matrix, "Emission Matrix")
+    # hmm.print_matrix(alpha, "Alpha")
+    # hmm.print_matrix(gamma, "Gamma")
+    # hmm.print_matrix(xi[0, :, :], "Xi")
+
     

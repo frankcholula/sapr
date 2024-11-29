@@ -56,9 +56,36 @@ def test_gamma_xi_probabilities(hmm_model, feature_set):
     beta = hmm_model.backward(emission_matrix, use_log=True)
     gamma = hmm_model.compute_gamma(alpha, beta)
     xi = hmm_model.compute_xi(alpha, beta, emission_matrix)
-    assert xi.shape == (emission_matrix.shape[1] - 1, hmm_model.num_states, hmm_model.num_states)
+    assert xi.shape == (
+        emission_matrix.shape[1] - 1,
+        hmm_model.num_states,
+        hmm_model.num_states,
+    )
     assert gamma.shape == (hmm_model.num_states, feature_set[0].shape[1])
     xi_summed = np.sum(xi, axis=2).T
     hmm_model.print_matrix(gamma, "Gamma Matrix")
     hmm_model.print_matrix(xi_summed, "Summed Xi Matrix", col="State", idx="State")
     np.testing.assert_array_almost_equal(gamma[:, :-1], xi_summed)
+
+
+def test_update_transitions(hmm_model, feature_set):
+    # Store initial probabilities
+    initial_A = hmm_model.A.copy()
+    
+    # Calculate all necessary probabilities for one sequence
+    emission_matrix = hmm_model.compute_log_emission_matrix(feature_set[0])
+    alpha = hmm_model.forward(emission_matrix, use_log=True)
+    beta = hmm_model.backward(emission_matrix, use_log=True)
+    gamma = hmm_model.compute_gamma(alpha, beta)
+    xi = hmm_model.compute_xi(alpha, beta, emission_matrix)
+    
+    hmm_model.update_A(xi, gamma)
+    
+    # Check that A matrix actually changed
+    assert not np.array_equal(initial_A, hmm_model.A), "Transition matrix should be updated"
+    
+    # Check structure is preserved between initial and updated A
+    # Zero elements should stay zero (structure preserved)
+    assert np.all((initial_A == 0) == (hmm_model.A == 0)), "Zero/non-zero structure should be preserved"
+    hmm_model.print_matrix(initial_A, "Initial A Matrix", col="State", idx= "State")
+    hmm_model.print_matrix(hmm_model.A, "Updated A Matrix", col="State", idx= "State")
