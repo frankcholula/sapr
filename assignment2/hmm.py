@@ -341,7 +341,7 @@ class HMM:
         # Helper function to compute transition probability
         def compute_transition_prob(t, i, j):
             """Calculate probability of transitioning from state i to j at time t.
-               xi(t,i,j) = [alpha(t,i) * a_ij * b_j(O_t+1) * beta(t+1,j)] / P(O|lambda)
+            xi(t,i,j) = [alpha(t,i) * a_ij * b_j(O_t+1) * beta(t+1,j)] / P(O|lambda)
             """
             if use_log:
                 prob = (
@@ -377,6 +377,46 @@ class HMM:
 
         return xi
 
+    def update_A(self, xi: np.ndarray, gamma: np.ndarray) -> None:
+        """
+        Update the transition matrix A using the computed xi and gamma values.
+        """
+        # Update transition matrix A
+        for i in range(self.num_states):
+            total_expected_transitions = np.sum(gamma[i, :-1])
+            expected_self_transitions = np.sum(xi[:, i, i])
+            expected_forward_transitions = np.sum(xi[:, i, i + 1])
+
+            if total_expected_transitions > 0:
+                if i < self.num_states - 1:
+                    self.A[i + 1, i + 1] = expected_self_transitions / total_expected_transitions
+                    self.A[i + 1, i + 2] = expected_forward_transitions / total_expected_transitions
+                else:
+                    self.A[i + 1, i + 1] = 1.0
+    
+    def update_B(self, features: np.ndarray, gamma: np.ndarray):
+        # Update means and variances for each state using gamma weights
+        new_means = np.zeros((self.num_obs, self.num_states))
+        new_vars = np.zeros((self.num_obs, self.num_states))
+        
+        for j in range(self.num_states):
+            gamma_sum = np.sum(gamma[j])
+            if gamma_sum > 0:
+                # Update means
+                weighted_sum = np.sum(gamma[j].reshape(-1,1) * features.T, axis=0)
+                new_means[:,j] = weighted_sum / gamma_sum
+                
+                # Update variances
+                diff = (features - new_means[:,j].reshape(-1,1))
+                weighted_var = np.sum(gamma[j].reshape(-1,1) * diff * diff.T, axis=1)
+                new_vars[:,j] = weighted_var / gamma_sum
+        
+        # Apply variance floor
+        var_floor = 0.01 * np.mean(new_vars)
+        new_vars = np.maximum(new_vars, var_floor)
+        
+        self.B = {'mean': new_means, 'covariance': new_vars}
+
     def print_matrix(
         self, matrix: np.ndarray, title: str, col="T", idx="State"
     ) -> None:
@@ -394,6 +434,6 @@ class HMM:
                 columns=[f"{col} {i+1}" for i in range(matrix.shape[1])],
                 index=[f"{idx} {i+1}" for i in range(matrix.shape[0])],
             )
-            print (df)
+            print(df)
         else:
             logging.warning("Method only supports 2D matrices.")
