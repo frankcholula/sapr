@@ -74,16 +74,17 @@ def test_gamma_xi_probabilities(hmm_model, feature_set):
 def test_update_transitions(hmm_model, feature_set):
     # Store initial probabilities
     initial_A = hmm_model.A.copy()
-    
+    initial_B = hmm_model.B.copy()
+
     # Calculate all necessary probabilities for one sequence
     emission_matrix = hmm_model.compute_log_emission_matrix(feature_set[0])
     alpha = hmm_model.forward(emission_matrix, use_log=True)
     beta = hmm_model.backward(emission_matrix, use_log=True)
     gamma = hmm_model.compute_gamma(alpha, beta)
     xi = hmm_model.compute_xi(alpha, beta, emission_matrix)
-    hmm_model.print_matrix(xi[40, : ,:], "Xi Matrix", col="State", idx="State", start_idx=1, start_col=1)
     
     hmm_model.update_A(xi, gamma)
+    hmm_model.update_B(feature_set[0], gamma)
     
     # Check that A matrix actually changed
     assert not np.array_equal(initial_A, hmm_model.A), "Transition matrix should be updated"
@@ -93,3 +94,7 @@ def test_update_transitions(hmm_model, feature_set):
     assert np.all((initial_A == 0) == (hmm_model.A == 0)), "Zero/non-zero structure should be preserved"
     hmm_model.print_matrix(initial_A, "Initial A Matrix", col="State", idx= "State", start_idx=0, start_col=0)
     hmm_model.print_matrix(hmm_model.A, "Updated A Matrix", col="State", idx= "State", start_idx=0, start_col=0)
+    hmm_model.print_matrix(initial_B["mean"], "Initial B Means", col="State", idx="MFCC", start_idx=1, start_col=1)
+    hmm_model.print_matrix(hmm_model.B["mean"], "Updated B Means", col="State", idx="MFCC", start_idx=1, start_col=1)
+    hmm_model.print_matrix(initial_B["covariance"], "Initial B Variances", col="State", idx="MFCC", start_idx=1, start_col=1)
+    hmm_model.print_matrix(hmm_model.B["covariance"], "Updated B Variances", col="State", idx="MFCC", start_idx=1, start_col=1)

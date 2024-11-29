@@ -384,26 +384,61 @@ class HMM:
         """
         # Entry state transitions to first state with probability 1
         self.A[0, 1] = 1.0
-        
+        self.print_matrix(xi[45, :, :], "Xi Matrix", col="State", idx="State", start_idx=0, start_col=0)
+
         # Update transitions for real states
         for i in range(self.num_states):
-            expected_transitions_from_i = np.sum(gamma[i, :-1])
-            
-            if expected_transitions_from_i > 0:
-                # Self transition
-                expected_self_transitions = np.sum(xi[:, i, i])
-                self.A[i+1, i+1] = expected_self_transitions / expected_transitions_from_i
-                
-                # Forward transition (to next state or exit state)
-                if i < self.num_states - 1:
-                    expected_forward_transitions = np.sum(xi[:, i, i+1])
-                    self.A[i+1, i+2] = expected_forward_transitions / expected_transitions_from_i
-            if i == self.num_states - 1:  # For State 8
-                print(f"Last state:")
-                print(f"Expected transitions from state: {expected_transitions_from_i}")
-                print(f"Expected self transitions: {expected_self_transitions}")
-                # Add other relevant values you want to check
+            expected_transitions_from_i = np.sum(gamma[i, :-1])  # Exclude last time step
 
+            if expected_transitions_from_i > 0:
+                # Self-transition and forward-transition
+                if i < self.num_states - 1:
+                    expected_self_transitions = np.sum(xi[:, i, i])
+                    expected_forward_transitions = np.sum(xi[:, i, i+1])
+                    self.A[i+1, i+1] = expected_self_transitions / expected_transitions_from_i
+                    self.A[i+1, i+2] = expected_forward_transitions / expected_transitions_from_i
+
+                # Transition to exit state
+                if i == self.num_states - 1:  # For the last real state (State 8 in your case)
+                    expected_exit_transitions = gamma[i, -1]  # Probability of being in state i at the last time step
+                    total_transitions_from_i = expected_transitions_from_i + expected_exit_transitions
+                    self.A[i+1, i+1] = (np.sum(xi[:, i, i]) / total_transitions_from_i)  # Normalize self-transition
+                    self.A[i+1, i+2] = (expected_exit_transitions / total_transitions_from_i)  # Normalize exit transition
+    def update_B(self, features: np.ndarray, gamma: np.ndarray) -> None:
+        """
+        Update emission probability matrix B (Gaussian parameters for each state).
+        
+        Args:
+            features: Observed feature matrix of shape (num_features, T).
+            gamma: State occupation probabilities of shape (N, T).
+        """
+        num_features, T = features.shape  # F, T
+        N = self.num_states  # Number of states
+
+        # Initialize updated means and variances
+        updated_means = np.zeros((num_features, N))
+        updated_variances = np.zeros((num_features, N))
+
+        # Update mean and variance for each state
+        for j in range(N):
+            # Weighted sum for mean
+            gamma_sum = np.sum(gamma[j])  # Sum of gamma over all time steps for state j
+            if gamma_sum > 0:
+                updated_means[:, j] = np.sum(gamma[j] * features, axis=1) / gamma_sum
+
+                # Weighted sum for variance
+                deviations = features - updated_means[:, j:j+1]  # Broadcast mean across time
+                updated_variances[:, j] = np.sum(gamma[j] * (deviations ** 2), axis=1) / gamma_sum
+            else:
+                # Handle empty states (rare in well-trained models)
+                updated_means[:, j] = np.zeros(num_features)
+                updated_variances[:, j] = np.ones(num_features)  # Prevent division by zero
+
+        # Update model parameters
+        self.B["mean"] = updated_means
+        self.B["covariance"] = updated_variances
+
+    
     def print_matrix(
         self, matrix: np.ndarray, title: str, col="T", idx="State", start_idx=0, start_col=0
     ) -> None:
