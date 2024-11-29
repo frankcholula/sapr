@@ -81,6 +81,7 @@ def test_update_transitions(hmm_model, feature_set):
     beta = hmm_model.backward(emission_matrix, use_log=True)
     gamma = hmm_model.compute_gamma(alpha, beta)
     xi = hmm_model.compute_xi(alpha, beta, emission_matrix)
+    hmm_model.print_matrix(xi[40, : ,:], "Xi Matrix", col="State", idx="State", start_idx=1, start_col=1)
     
     hmm_model.update_A(xi, gamma)
     
@@ -90,5 +91,5 @@ def test_update_transitions(hmm_model, feature_set):
     # Check structure is preserved between initial and updated A
     # Zero elements should stay zero (structure preserved)
     assert np.all((initial_A == 0) == (hmm_model.A == 0)), "Zero/non-zero structure should be preserved"
-    hmm_model.print_matrix(initial_A, "Initial A Matrix", col="State", idx= "State", start_idx=1, start_col=1)
-    hmm_model.print_matrix(hmm_model.A, "Updated A Matrix", col="State", idx= "State", start_idx=1, start_col=1)
+    hmm_model.print_matrix(initial_A, "Initial A Matrix", col="State", idx= "State", start_idx=0, start_col=0)
+    hmm_model.print_matrix(hmm_model.A, "Updated A Matrix", col="State", idx= "State", start_idx=0, start_col=0)

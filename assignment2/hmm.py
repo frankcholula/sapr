@@ -377,28 +377,32 @@ class HMM:
 
         return xi
 
-
     def update_A(self, xi: np.ndarray, gamma: np.ndarray) -> None:
         """
         Update transition probability matrix A using Baum-Welch formula:
         aᵢⱼ = (sum over t of ξ(t,i,j)) / (sum over t of γ(t,i))
         """
-        # Entry state (0) can only transition to first real state (1)
+        # Entry state transitions to first state with probability 1
         self.A[0, 1] = 1.0
         
         # Update transitions for real states
         for i in range(self.num_states):
+            expected_transitions_from_i = np.sum(gamma[i, :-1])
             
-            expected_transitions_from_i = np.sum(gamma[i, :-1])  # exclude last time step
-            
-            if expected_transitions_from_i > 0:  # avoid division by zero
-                if i < self.num_states - 1:  # for all states except last
-                    expected_self_transitions = np.sum(xi[:, i, i])
+            if expected_transitions_from_i > 0:
+                # Self transition
+                expected_self_transitions = np.sum(xi[:, i, i])
+                self.A[i+1, i+1] = expected_self_transitions / expected_transitions_from_i
+                
+                # Forward transition (to next state or exit state)
+                if i < self.num_states - 1:
                     expected_forward_transitions = np.sum(xi[:, i, i+1])
-                    self.A[i+1, i+1] = expected_self_transitions / expected_transitions_from_i
                     self.A[i+1, i+2] = expected_forward_transitions / expected_transitions_from_i
-                else:
-                    self.A[i+1, i+1] = 1.0
+            if i == self.num_states - 1:  # For State 8
+                print(f"Last state:")
+                print(f"Expected transitions from state: {expected_transitions_from_i}")
+                print(f"Expected self transitions: {expected_self_transitions}")
+                # Add other relevant values you want to check
 
     def print_matrix(
         self, matrix: np.ndarray, title: str, col="T", idx="State", start_idx=0, start_col=0
