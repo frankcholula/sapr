@@ -441,7 +441,7 @@ class HMM:
                 (self.num_states, 1)
             )  # Gamma sum for normalization
 
-            for seq_idx, features in features_list:
+            for seq_idx, features in enumerate(features_list):
                 # === E-Step for a single sequence ===
                 log_B = self.compute_log_emission_matrix(features)
                 alpha = self.forward(log_B, use_log=True)
@@ -458,6 +458,7 @@ class HMM:
                 weighted_sum_gamma += np.sum(gamma, axis=1, keepdims=True)
                 # Compute log-likelihood for the current sequence
                 log_likelihood = np.logaddexp.reduce(alpha[:, -1])
+                # print(f"Sequence {seq_idx + 1}, Log-Likelihood: {log_likelihood}")
                 total_log_likelihood += log_likelihood
 
             print(
