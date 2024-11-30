@@ -78,6 +78,7 @@ def load_mfccs(directory_path: str) -> list[np.ndarray]:
 
     return feature_list
 
+
 def load_mfccs_by_word(directory_path: str, word: str) -> list[np.ndarray]:
     mfccs = []
     for file_name in os.listdir(directory_path):
@@ -86,7 +87,6 @@ def load_mfccs_by_word(directory_path: str, word: str) -> list[np.ndarray]:
             file_path = os.path.join(directory_path, file_name)
             mfccs.append(load_mfcc(file_path))
     return mfccs
-
 
 
 if __name__ == "__main__":
