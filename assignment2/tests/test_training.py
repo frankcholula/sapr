@@ -71,7 +71,7 @@ def test_gamma_xi_probabilities(hmm_model, feature_set):
     np.testing.assert_array_almost_equal(gamma[:, :-1], xi_summed)
 
 
-def test_update_transitions(hmm_model, feature_set):
+def test_update_transitions_and_emissions(hmm_model, feature_set):
     # Store initial probabilities
     initial_A = hmm_model.A.copy()
     initial_B = hmm_model.B.copy()

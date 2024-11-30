@@ -459,3 +459,57 @@ class HMM:
             print(df)
         else:
             logging.warning("Method only supports 2D matrices.")
+    
+    def baum_welch(self, features_list: list[np.ndarray], max_iter: int = 100, tol: float = 1e-4):
+        """
+        Train the HMM using the Baum-Welch algorithm on multiple sequences.
+
+        Args:
+            features_list: List of observed feature matrices, each of shape (num_features, T).
+            max_iter: Maximum number of iterations.
+            tol: Convergence tolerance for log-likelihood improvement.
+        """
+        prev_log_likelihood = float('-inf')  # Initialize log-likelihood
+
+        for iteration in range(max_iter):
+            total_log_likelihood = 0  # Sum log-likelihood over all sequences
+
+            # Aggregated gamma and xi over all sequences
+            aggregated_gamma = None
+            aggregated_xi = None
+
+            for features in features_list:
+                T = features.shape[1]
+
+                # === E-Step for a single sequence ===
+                log_B = self.compute_log_emission_matrix(features)  # Log emission probabilities
+                alpha = self.forward(log_B, use_log=True)
+                beta = self.backward(log_B, use_log=True)
+                gamma = self.compute_gamma(alpha, beta, use_log=True)
+                xi = self.compute_xi(alpha, beta, log_B, use_log=True)
+
+                # Accumulate gamma and xi
+                if aggregated_gamma is None:
+                    aggregated_gamma = gamma
+                    aggregated_xi = xi
+                else:
+                    aggregated_gamma += gamma
+                    aggregated_xi += xi
+
+                # Compute log-likelihood for the current sequence
+                log_likelihood = np.logaddexp.reduce(alpha[:, -1])  # Log-sum-exp for sequence
+                total_log_likelihood += log_likelihood
+
+            print(f"Iteration {iteration}, Total Log-Likelihood: {total_log_likelihood}")
+
+            # Check for convergence
+            if abs(total_log_likelihood - prev_log_likelihood) < tol:
+                print("Converged!")
+                break
+            prev_log_likelihood = total_log_likelihood
+
+            # === M-Step ===
+            self.update_A(aggregated_xi, aggregated_gamma)  # Update transition probabilities
+            self.update_B(np.hstack(features_list), aggregated_gamma)  # Update emission probabilities
+
+        print("Baum-Welch training completed.")

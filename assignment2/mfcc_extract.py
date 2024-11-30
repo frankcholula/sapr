@@ -78,7 +78,19 @@ def load_mfccs(directory_path: str) -> list[np.ndarray]:
 
     return feature_list
 
+def load_mfccs_by_word(directory_path: str, word: str) -> list[np.ndarray]:
+    mfccs = []
+    for file_name in os.listdir(directory_path):
+        file_word = file_name.split("_")[-1].split(".")[0]
+        if file_name.endswith(".npy") and file_word == word:
+            file_path = os.path.join(directory_path, file_name)
+            mfccs.append(load_mfcc(file_path))
+    return mfccs
+
+
 
 if __name__ == "__main__":
     TRAINING_FOLDER = "dev_set"
     extract_mfccs(TRAINING_FOLDER, "feature_set")
+    all_features = load_mfccs("feature_set")
+    heed_features = load_mfccs_by_word("feature_set", "heed")
