@@ -384,7 +384,6 @@ class HMM:
         """
         # Entry state transitions to first state with probability 1
         self.A[0, 1] = 1.0
-        self.print_matrix(xi[45, :, :], "Xi Matrix", col="State", idx="State", start_idx=0, start_col=0)
 
         # Update transitions for real states
         for i in range(self.num_states):
