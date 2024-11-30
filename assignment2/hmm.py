@@ -387,59 +387,75 @@ class HMM:
 
         # Update transitions for real states
         for i in range(self.num_states):
-            expected_transitions_from_i = np.sum(gamma[i, :-1])  # Exclude last time step
+            expected_transitions_from_i = np.sum(
+                gamma[i, :-1]
+            )  # Exclude last time step
 
             if expected_transitions_from_i > 0:
                 # Self-transition and forward-transition
                 if i < self.num_states - 1:
                     expected_self_transitions = np.sum(xi[:, i, i])
-                    expected_forward_transitions = np.sum(xi[:, i, i+1])
-                    self.A[i+1, i+1] = expected_self_transitions / expected_transitions_from_i
-                    self.A[i+1, i+2] = expected_forward_transitions / expected_transitions_from_i
+                    expected_forward_transitions = np.sum(xi[:, i, i + 1])
+                    self.A[i + 1, i + 1] = (
+                        expected_self_transitions / expected_transitions_from_i
+                    )
+                    self.A[i + 1, i + 2] = (
+                        expected_forward_transitions / expected_transitions_from_i
+                    )
 
                 # Transition to exit state
-                if i == self.num_states - 1:  # For the last real state (State 8 in your case)
-                    expected_exit_transitions = gamma[i, -1]  # Probability of being in state i at the last time step
-                    total_transitions_from_i = expected_transitions_from_i + expected_exit_transitions
-                    self.A[i+1, i+1] = (np.sum(xi[:, i, i]) / total_transitions_from_i)  # Normalize self-transition
-                    self.A[i+1, i+2] = (expected_exit_transitions / total_transitions_from_i)  # Normalize exit transition
+                if (
+                    i == self.num_states - 1
+                ):  # For the last real state (State 8 in your case)
+                    expected_exit_transitions = gamma[
+                        i, -1
+                    ]  # Probability of being in state i at the last time step
+                    total_transitions_from_i = (
+                        expected_transitions_from_i + expected_exit_transitions
+                    )
+                    self.A[i + 1, i + 1] = (
+                        np.sum(xi[:, i, i]) / total_transitions_from_i
+                    )  # Normalize self-transition
+                    self.A[i + 1, i + 2] = (
+                        expected_exit_transitions / total_transitions_from_i
+                    )  # Normalize exit transition
+
     def update_B(self, features: np.ndarray, gamma: np.ndarray) -> None:
         """
         Update emission probability matrix B (Gaussian parameters for each state).
-        
+        This implements the Baum-Welch update formulas for continuous HMMs
+        with Gaussian emissions.
+
         Args:
             features: Observed feature matrix of shape (num_features, T).
             gamma: State occupation probabilities of shape (N, T).
         """
-        num_features, T = features.shape  # F, T
-        N = self.num_states  # Number of states
+        num_features, T = features.shape
+        N = self.num_states
 
-        # Initialize updated means and variances
         updated_means = np.zeros((num_features, N))
         updated_variances = np.zeros((num_features, N))
 
-        # Update mean and variance for each state
         for j in range(N):
-            # Weighted sum for mean
-            gamma_sum = np.sum(gamma[j])  # Sum of gamma over all time steps for state j
-            if gamma_sum > 0:
-                updated_means[:, j] = np.sum(gamma[j] * features, axis=1) / gamma_sum
+            gamma_sum = np.sum(gamma[j])
+            updated_means[:, j] = np.sum(gamma[j] * features, axis=1) / gamma_sum
+            deviations = features - updated_means[:, j:j+1]
+            updated_variances[:, j] = np.sum(gamma[j] * (deviations**2), axis=1) / gamma_sum
 
-                # Weighted sum for variance
-                deviations = features - updated_means[:, j:j+1]  # Broadcast mean across time
-                updated_variances[:, j] = np.sum(gamma[j] * (deviations ** 2), axis=1) / gamma_sum
-            else:
-                # Handle empty states (rare in well-trained models)
-                updated_means[:, j] = np.zeros(num_features)
-                updated_variances[:, j] = np.ones(num_features)  # Prevent division by zero
+        var_floor = 0.01 * np.mean(updated_variances)
+        updated_variances = np.maximum(updated_variances, var_floor)
 
-        # Update model parameters
         self.B["mean"] = updated_means
         self.B["covariance"] = updated_variances
 
-    
     def print_matrix(
-        self, matrix: np.ndarray, title: str, col="T", idx="State", start_idx=0, start_col=0
+        self,
+        matrix: np.ndarray,
+        title: str,
+        col="T",
+        idx="State",
+        start_idx=0,
+        start_col=0,
     ) -> None:
         """
         Prints a given matrix with a formatted title, column headers, and row indices.
@@ -458,8 +474,10 @@ class HMM:
             print(df)
         else:
             logging.warning("Method only supports 2D matrices.")
-    
-    def baum_welch(self, features_list: list[np.ndarray], max_iter: int = 100, tol: float = 1e-4):
+
+    def baum_welch(
+        self, features_list: list[np.ndarray], max_iter: int = 100, tol: float = 1e-4
+    ):
         """
         Train the HMM using the Baum-Welch algorithm on multiple sequences.
 
@@ -468,7 +486,7 @@ class HMM:
             max_iter: Maximum number of iterations.
             tol: Convergence tolerance for log-likelihood improvement.
         """
-        prev_log_likelihood = float('-inf')  # Initialize log-likelihood
+        prev_log_likelihood = float("-inf")  # Initialize log-likelihood
 
         for iteration in range(max_iter):
             total_log_likelihood = 0  # Sum log-likelihood over all sequences
@@ -481,7 +499,9 @@ class HMM:
                 T = features.shape[1]
 
                 # === E-Step for a single sequence ===
-                log_B = self.compute_log_emission_matrix(features)  # Log emission probabilities
+                log_B = self.compute_log_emission_matrix(
+                    features
+                )  # Log emission probabilities
                 alpha = self.forward(log_B, use_log=True)
                 beta = self.backward(log_B, use_log=True)
                 gamma = self.compute_gamma(alpha, beta, use_log=True)
@@ -496,10 +516,14 @@ class HMM:
                     aggregated_xi += xi
 
                 # Compute log-likelihood for the current sequence
-                log_likelihood = np.logaddexp.reduce(alpha[:, -1])  # Log-sum-exp for sequence
+                log_likelihood = np.logaddexp.reduce(
+                    alpha[:, -1]
+                )  # Log-sum-exp for sequence
                 total_log_likelihood += log_likelihood
 
-            print(f"Iteration {iteration}, Total Log-Likelihood: {total_log_likelihood}")
+            print(
+                f"Iteration {iteration}, Total Log-Likelihood: {total_log_likelihood}"
+            )
 
             # Check for convergence
             if abs(total_log_likelihood - prev_log_likelihood) < tol:
@@ -508,7 +532,11 @@ class HMM:
             prev_log_likelihood = total_log_likelihood
 
             # === M-Step ===
-            self.update_A(aggregated_xi, aggregated_gamma)  # Update transition probabilities
-            self.update_B(np.hstack(features_list), aggregated_gamma)  # Update emission probabilities
+            self.update_A(
+                aggregated_xi, aggregated_gamma
+            )  # Update transition probabilities
+            self.update_B(
+                np.hstack(features_list), aggregated_gamma
+            )  # Update emission probabilities
 
         print("Baum-Welch training completed.")
