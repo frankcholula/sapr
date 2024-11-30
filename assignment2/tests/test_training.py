@@ -74,10 +74,7 @@ def test_gamma_xi_probabilities(hmm_model, feature_set):
 def test_update_transitions_and_emissions(hmm_model, feature_set):
    # Store initial probabilities
    initial_A = hmm_model.A.copy()
-   initial_B = {
-       "mean": hmm_model.B["mean"].copy(),
-       "covariance": hmm_model.B["covariance"].copy()
-   }
+   initial_B = hmm_model.B.copy()
 
    # Calculate probabilities and update parameters
    emission_matrix = hmm_model.compute_log_emission_matrix(feature_set[0])
