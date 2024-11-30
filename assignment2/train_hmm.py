@@ -2,11 +2,31 @@ from hmm import HMM
 from mfcc_extract import load_mfccs, load_mfccs_by_word
 import numpy as np
 
-if __name__ == "__main__":
+
+def train_hmm():
+    vocabs = [
+        "heed",
+        "hid",
+        "head",
+        "had",
+        "hard",
+        "hud",
+        "hod",
+        "hoard",
+        "hood",
+        "whod",
+        "heard",
+    ]
+
     feature_set = load_mfccs("feature_set")
-    hood_features= load_mfccs_by_word("feature_set", "hood")
-    heed_features = load_mfccs_by_word("feature_set", "heed")
-    hood_hmm = HMM(8, 13, feature_set)
-    heed_hmm = HMM(8, 13, feature_set)
-    hood_hmm.baum_welch(hood_features, 10)
-    heed_hmm.baum_welch(heed_features, 10)
+    features = {word: load_mfccs_by_word("feature_set", word) for word in vocabs}
+    total_features_length = sum(len(features[word]) for word in vocabs)
+    assert total_features_length == len(feature_set)
+
+    hmms = {word: HMM(8, 13, feature_set, model_name=word) for word in vocabs}
+    for word, hmm in hmms.items():
+        hmm.baum_welch(features[word], 10)
+
+
+if __name__ == "__main__":
+    train_hmm()

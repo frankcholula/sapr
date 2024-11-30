@@ -9,11 +9,15 @@ logging.basicConfig(level=logging.INFO)
 
 class HMM:
     def __init__(
-        self, num_states: int, num_obs: int, feature_set: list[np.ndarray] = None
+        self,
+        num_states: int,
+        num_obs: int,
+        feature_set: list[np.ndarray] = None,
+        model_name: str = None,
     ):
         assert num_states > 0, "Number of states must be greater than 0."
         assert num_obs > 0, "Number of observations must be greater than 0."
-
+        self.model_name = model_name
         self.num_states = num_states
         self.num_obs = num_obs
 
@@ -477,7 +481,9 @@ class HMM:
         else:
             logging.warning("Method only supports 2D matrices.")
 
-    def baum_welch(self, features_list: list[np.ndarray], max_iter: int = 100, tol: float = 1e-4):
+    def baum_welch(
+        self, features_list: list[np.ndarray], max_iter: int = 100, tol: float = 1e-4
+    ):
         """
         Train the HMM using the Baum-Welch algorithm on sequences of varying lengths.
 
@@ -486,40 +492,61 @@ class HMM:
             max_iter: Maximum number of iterations.
             tol: Convergence tolerance for log-likelihood improvement.
         """
-        prev_log_likelihood = float('-inf')  # Initialize log-likelihood
+        print(f"\nTraining `{self.model_name}` HMM using Baum-Welch algorithm...")
+        prev_log_likelihood = float("-inf")  # Initialize log-likelihood
 
         for iteration in range(max_iter):
             total_log_likelihood = 0  # Sum log-likelihood over all sequences
 
             # Aggregated statistics for updating A and B
-            aggregated_gamma = np.zeros((self.num_states, 1))  # Gamma sum for each state
-            aggregated_xi = np.zeros((self.num_states, self.num_states))  # Xi sum for all transitions
+            aggregated_gamma = np.zeros(
+                (self.num_states, 1)
+            )  # Gamma sum for each state
+            aggregated_xi = np.zeros(
+                (self.num_states, self.num_states)
+            )  # Xi sum for all transitions
 
             # Initialize accumulators for emission updates
-            weighted_sum_features = np.zeros((features_list[0].shape[0], self.num_states))  # Feature sum for each state
-            weighted_sum_gamma = np.zeros((self.num_states, 1))  # Gamma sum for normalization
+            weighted_sum_features = np.zeros(
+                (features_list[0].shape[0], self.num_states)
+            )  # Feature sum for each state
+            weighted_sum_gamma = np.zeros(
+                (self.num_states, 1)
+            )  # Gamma sum for normalization
 
             for features in features_list:
                 # === E-Step for a single sequence ===
-                log_B = self.compute_log_emission_matrix(features)  # Log emission probabilities
+                log_B = self.compute_log_emission_matrix(
+                    features
+                )  # Log emission probabilities
                 alpha = self.forward(log_B, use_log=True)
                 beta = self.backward(log_B, use_log=True)
                 gamma = self.compute_gamma(alpha, beta, use_log=True)
                 xi = self.compute_xi(alpha, beta, log_B, use_log=True)
 
                 # Accumulate gamma and xi for transitions
-                aggregated_gamma += np.sum(gamma, axis=1, keepdims=True)  # Sum gamma over time
+                aggregated_gamma += np.sum(
+                    gamma, axis=1, keepdims=True
+                )  # Sum gamma over time
                 aggregated_xi += np.sum(xi, axis=0)  # Sum xi over time
 
                 # Accumulate weighted statistics for emission updates
-                weighted_sum_features += np.dot(features, gamma.T)  # Weighted sum of features
-                weighted_sum_gamma += np.sum(gamma, axis=1, keepdims=True)  # Sum gamma for normalization
+                weighted_sum_features += np.dot(
+                    features, gamma.T
+                )  # Weighted sum of features
+                weighted_sum_gamma += np.sum(
+                    gamma, axis=1, keepdims=True
+                )  # Sum gamma for normalization
 
                 # Compute log-likelihood for the current sequence
-                log_likelihood = np.logaddexp.reduce(alpha[:, -1])  # Log-sum-exp for sequence
+                log_likelihood = np.logaddexp.reduce(
+                    alpha[:, -1]
+                )  # Log-sum-exp for sequence
                 total_log_likelihood += log_likelihood
 
-            print(f"Iteration {iteration}, Total Log-Likelihood: {total_log_likelihood}")
+            print(
+                f"Iteration {iteration}, Total Log-Likelihood: {total_log_likelihood}"
+            )
 
             # Check for convergence
             if abs(total_log_likelihood - prev_log_likelihood) < tol:
@@ -528,7 +555,11 @@ class HMM:
             prev_log_likelihood = total_log_likelihood
 
             # === M-Step ===
-            self.update_A(aggregated_xi, aggregated_gamma)  # Update transition probabilities
-            self.update_B(weighted_sum_features, weighted_sum_gamma)  # Update emission probabilities
+            self.update_A(
+                aggregated_xi, aggregated_gamma
+            )  # Update transition probabilities
+            self.update_B(
+                weighted_sum_features, weighted_sum_gamma
+            )  # Update emission probabilities
 
         print("Baum-Welch training completed.")
