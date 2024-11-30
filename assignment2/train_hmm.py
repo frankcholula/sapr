@@ -24,7 +24,7 @@ def train_hmm():
 
     hmms = {word: HMM(8, 13, feature_set, model_name=word) for word in vocabs}
     for word, hmm in hmms.items():
-        hmm.baum_welch(features[word], 1)
+        hmm.baum_welch(features[word], 2)
 
 
 if __name__ == "__main__":

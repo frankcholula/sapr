@@ -19,14 +19,10 @@ def heed_features():
     return load_mfccs_by_word("feature_set", "heed")
 
 
-@pytest.fixture
-def heed_model(heed_features):
-    return HMM(8, 13, heed_features, model_name="heed")
-
-
 def test_emission_matrix(hmm_model, feature_set):
     test_features = feature_set[0]
     B_probs = hmm_model.compute_log_emission_matrix(test_features)
+
 
     # Test shape
     assert B_probs.shape == (8, test_features.shape[1])
@@ -181,6 +177,5 @@ def test_update_transitions_and_emissions(hmm_model, feature_set):
     assert np.all(np.isfinite(hmm_model.B["mean"])), "All means should be finite"
 
 
-# def test_training_heed(hmm_model, heed_features):
-#     heed_model = HMM(8, 13, heed_features, model_name="heed")
-#     heed_model.baum_welch(heed_features, 10)
+def test_training_heed(hmm_model, heed_features):
+    hmm_model.baum_welch(heed_features, 10)
