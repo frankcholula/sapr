@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 from mfcc_extract import load_mfccs
 import logging
-import time
+from matplotlib import pyplot as plt
 
 logging.basicConfig(level=logging.INFO)
 
@@ -545,12 +545,12 @@ class HMM:
                 total_log_likelihood += log_likelihood
                 
                 if len(features_list) > 10 and seq_idx % 10 == 0:
-                    print(f"Processed sequence {seq_idx + 1}/{len(features_list)}")
+                    print(f"Processed sequence {seq_idx + 1}/{len(features_list)}...")
             
             # Store the log likelihood for this iteration
             log_likelihood_history.append(total_log_likelihood)
             
-            print(f"Iteration {iteration}, Total Log-Likelihood: {total_log_likelihood}")
+            print(f"Iteration {iteration + 1}, Total Log-Likelihood: {total_log_likelihood}")
             
             # Check for convergence
             if abs(total_log_likelihood - prev_log_likelihood) < tol:
@@ -571,5 +571,48 @@ class HMM:
         print(f"Initial log-likelihood: {log_likelihood_history[0]:.2f}")
         print(f"Final log-likelihood: {log_likelihood_history[-1]:.2f}")
         print(f"Total improvement: {total_improvement:.2f}")
-        
+        print(log_likelihood_history)
         return log_likelihood_history
+
+
+
+    def plot_log_likelihood(log_likelihoods, title=None, save_path=None):
+        """
+        Create a plot showing how log likelihood changes during HMM training.
+        
+        Args:
+            log_likelihoods (list): List of log likelihood values from training
+            title (str, optional): Custom title for the plot
+            save_path (str, optional): If provided, save plot to this path
+        """
+        # Create figure with reasonable size
+        plt.figure(figsize=(10, 6))
+        
+        # Plot log likelihoods
+        iterations = range(len(log_likelihoods))
+        plt.plot(iterations, log_likelihoods, 'b-', linewidth=2, label='Log Likelihood')
+        
+        # Add markers to more easily see individual points
+        plt.plot(iterations, log_likelihoods, 'bo', markersize=4)
+        
+        # Calculate improvement
+        total_improvement = log_likelihoods[-1] - log_likelihoods[0]
+        
+        # Set labels and title
+        plt.xlabel('Iteration', fontsize=12)
+        plt.ylabel('Log Likelihood', fontsize=12)
+        plt.title(title or f'HMM Training Progress\nTotal Improvement: {total_improvement:.2f}', 
+                fontsize=14)
+        
+        # Add grid for easier reading
+        plt.grid(True, linestyle='--', alpha=0.7)
+        
+        # Adjust layout to prevent label cutoff
+        plt.tight_layout()
+        
+        # Save if path provided
+        if save_path:
+            plt.savefig(save_path)
+            print(f"Plot saved to {save_path}")
+        
+        plt.show()
