@@ -477,75 +477,66 @@ class HMM:
 
         print("Baum-Welch training completed.")
 
-    def update_A(self, xi: np.ndarray, gamma: np.ndarray) -> None:
+    def update_A(self, aggregated_xi: np.ndarray, aggregated_gamma: np.ndarray) -> None:
         """
-        Update transition probability matrix A using Baum-Welch formula:
-        aᵢⱼ = (sum over t of ξ(t,i,j)) / (sum over t of γ(t,i))
-        """
-        # Entry state transitions to first state with probability 1
-        self.A[0, 1] = 1.0
-
-        # Update transitions for real states
-        for i in range(self.num_states):
-            expected_transitions_from_i = np.sum(
-                gamma[i, :-1]
-            )  # Exclude last time step
-
-            if expected_transitions_from_i > 0:
-                # Self-transition and forward-transition
-                if i < self.num_states - 1:
-                    expected_self_transitions = np.sum(xi[:, i, i])
-                    expected_forward_transitions = np.sum(xi[:, i, i + 1])
-                    self.A[i + 1, i + 1] = (
-                        expected_self_transitions / expected_transitions_from_i
-                    )
-                    self.A[i + 1, i + 2] = (
-                        expected_forward_transitions / expected_transitions_from_i
-                    )
-
-                # Transition to exit state
-                if (
-                    i == self.num_states - 1
-                ):  # For the last real state (State 8 in your case)
-                    expected_exit_transitions = gamma[
-                        i, -1
-                    ]  # Probability of being in state i at the last time step
-                    total_transitions_from_i = (
-                        expected_transitions_from_i + expected_exit_transitions
-                    )
-                    self.A[i + 1, i + 1] = (
-                        np.sum(xi[:, i, i]) / total_transitions_from_i
-                    )  # Normalize self-transition
-                    self.A[i + 1, i + 2] = (
-                        expected_exit_transitions / total_transitions_from_i
-                    )  # Normalize exit transition
-
-    def update_B(self, features: np.ndarray, gamma: np.ndarray) -> None:
-        """
-        Update emission probability matrix B (Gaussian parameters for each state).
-        This implements the Baum-Welch update formulas for continuous HMMs
-        with Gaussian emissions.
-
+        Update transition probability matrix A using accumulated statistics from all sequences.
+        
         Args:
-            features: Observed feature matrix of shape (num_features, T).
-            gamma: State occupation probabilities of shape (N, T).
+            aggregated_xi: Sum of transition counts across all sequences, shape (num_states, num_states)
+            aggregated_gamma: Sum of state occupation counts across all sequences, shape (num_states, 1)
         """
-        num_features, T = features.shape
-        N = self.num_states
+        # Entry state always transitions to first state with probability 1
+        self.A[0, 1] = 1.0
+        
+        # Update transitions for real states (states 1 to N)
+        for i in range(self.num_states):
+            total_transitions_from_i = aggregated_gamma[i, 0]
+            
+            if total_transitions_from_i > 0:
+                # Self-transition probability
+                self.A[i + 1, i + 1] = aggregated_xi[i, i] / total_transitions_from_i
+                
+                # Forward transition probability (if not the last state)
+                if i < self.num_states - 1:
+                    self.A[i + 1, i + 2] = aggregated_xi[i, i + 1] / total_transitions_from_i
+                
+                # For the last real state, also update transition to exit state
+                if i == self.num_states - 1:
+                    # The probability of transitioning to exit state is what remains
+                    # after self-transition probability is assigned
+                    self.A[i + 1, i + 2] = 1.0 - self.A[i + 1, i + 1]
 
-        updated_means = np.zeros((num_features, N))
-        updated_variances = np.zeros((num_features, N))
-
-        for j in range(N):
-            gamma_sum = np.sum(gamma[j])
-            updated_means[:, j] = np.sum(gamma[j] * features, axis=1) / gamma_sum
-            deviations = features - updated_means[:, j : j + 1]
-            updated_variances[:, j] = (
-                np.sum(gamma[j] * (deviations**2), axis=1) / gamma_sum
-            )
-
-        var_floor = 0.01 * np.mean(updated_variances)
-        updated_variances = np.maximum(updated_variances, var_floor)
-
-        self.B["mean"] = updated_means
-        self.B["covariance"] = updated_variances
+    # def update_B(self, weighted_sum_features: np.ndarray, weighted_sum_gamma: np.ndarray) -> None:
+    #     """
+    #     Update emission parameters (means and covariances) using accumulated statistics 
+    #     from all sequences.
+        
+    #     Args:
+    #         weighted_sum_features: Sum of features weighted by gamma across all sequences,
+    #                             shape (num_features, num_states)
+    #         weighted_sum_gamma: Sum of gamma values across all sequences for normalization,
+    #                         shape (num_states, 1)
+    #     """
+    #     # Update means
+    #     # Normalize the weighted sum of features by the total gamma for each state
+    #     self.B["mean"] = weighted_sum_features / weighted_sum_gamma.T
+        
+    #     # We need to recompute the variances using the updated means
+    #     updated_variances = np.zeros_like(self.B["covariance"])
+        
+    #     # Update variances using the new means
+    #     for features in self._current_features:  # We need to store features temporarily
+    #         for j in range(self.num_states):
+    #             diff = features - self.B["mean"][:, j:j+1]
+    #             weighted_sq_diff = np.sum(
+    #                 self._current_gamma[j] * (diff ** 2),
+    #                 axis=1
+    #             )
+    #             updated_variances[:, j] += weighted_sq_diff
+        
+    #     # Normalize by total gamma counts
+    #     updated_variances /= weighted_sum_gamma.T
+        
+    #     # Apply variance floor
+    #     var_floor = 0.01 * np.mean(updated_variances)
+    #     self.B["covariance"] = np.maximum(updated_variances, var_floor)
