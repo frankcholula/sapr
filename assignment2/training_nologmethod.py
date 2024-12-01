@@ -180,31 +180,87 @@ def baum_welch(observations_list, model):
     model.B["covariancematrix"] = covariances
     return model
 
+
+
+def viterbi_algorithm(observations, A, B):
+    """
+    Viterbi algorithm to find the most likely sequence of states (X*) given the observations.
+    
+    Parameters:
+    observations: numpy array of shape (num_features, T)
+    A: state transition probability matrix (including start and end states)
+    B: dictionary containing "mean" and "covariancematrix" for observation probabilities
+    
+    Returns:
+    X_star: Most likely sequence of states
+    delta: Maximum cumulative likelihood for each state at each time step
+    psi: Backpointer table to reconstruct the state sequence
+    """
+    num_states = A.shape[0] - 2  # Exclude start and end states
+    T = observations.shape[1]  # Number of time steps
+    delta = np.zeros((T, num_states))  # Maximum cumulative likelihoods
+    psi = np.zeros((T, num_states), dtype=int)  # Backpointer table
+
+    pi = A[0, 1:-1]  # Initial state probabilities
+    means = B["mean"]
+    covariances = B["covariancematrix"]
+    scale_factor = 1e24
+
+    # Initialize
+    delta[0, :] = pi * multivariate_gaussian(observations[:, 0], means[:, 0], covariances[0]) * scale_factor
+    psi[0, :] = 0
+
+    # Recursion
+    for t in range(1, T):
+        for j in range(num_states):
+            max_value = -np.inf
+            max_state = -1
+            for i in range(num_states):
+                value = delta[t - 1, i] * A[i + 1, j + 1]
+                if value > max_value:
+                    max_value = value
+                    max_state = i
+            delta[t, j] = max_value * multivariate_gaussian(observations[:, t], means[:, j], covariances[j]) * scale_factor
+            psi[t, j] = max_state
+
+    # Finalize
+    P_star = delta[-1, -1]*A[-2, -1]
+    #X_star = np.zeros(T, dtype=int)
+    #X_star[-1] = np.argmax(delta[-1, :])
+    
+
+    # Trace back
+    #for t in range(T - 2, -1, -1):
+        #X_star[t] = psi[t + 1, X_star[t + 1]]
+
+    return  P_star
+
+
 def train2_hmm():
     vocabs = [
-        "heed",
+        #"heed",
         # "hid",
         # "head",
         # "had",
         # "hard",
         # "hud",
-        # "hod",
+         "hod",
         # "hoard",
-        # "hood",
+        #"hood",
         # "whod",
         # "heard",
     ]
 
-    feature_set = load_mfccs("assignment2/feature_set")
-    features = {word: load_mfccs_by_word("assignment2/feature_set", word) for word in vocabs}
+    feature_set = load_mfccs("feature_set")
+    features = {word: load_mfccs_by_word("feature_set", word) for word in vocabs}
     # total_features_length = sum(len(features[word]) for word in vocabs)
     # assert total_features_length == len(feature_set)
     
     hmms = {word: HMM(8, 13, feature_set, model_name=word) for word in vocabs}
     
-    model = hmms["heed"]
-    testing_feature = features["heed"]
-    observations = testing_feature[0]
+    model = hmms["hod"]
+    testing_feature = features["hod"]
+    observations = testing_feature[7]
 
     #print(model.B["covariancematrix"][0].shape)
     new_alpha = forward_algorithm(observations,model.A,model.B)
@@ -216,9 +272,9 @@ def train2_hmm():
     
     #HMM.print_parameters(hmms["heed"])
 
-    new_model = baum_welch(testing_feature,model)
-
-
+    #new_model = baum_welch(testing_feature,model)
+    print(viterbi_algorithm(observations,model.A,model.B))
+    
     
     # for word, hmm in hmms.items():
     #     hmm.baum_welch(features[word], 2)
@@ -227,7 +283,7 @@ def train2_hmm():
 
 if __name__ == "__main__":
     train2_hmm()
-
+    
 #     TRAINING_FOLDER = "feature_set"
 #     class_name = 'heed'
 #     num_states = 8
