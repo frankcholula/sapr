@@ -112,8 +112,12 @@ def test_update_transitions(hmm_model, heed_features):
         aggregated_xi += np.sum(xi, axis=0)
         print(f"\nProcessed sequence {seq_idx + 1}")
         print(f"Sequence length: {heed_feature.shape[1]} frames")
-        assert np.isclose(np.sum(gamma), heed_feature.shape[1]), "Gamma sum should equal T"
-        assert np.isclose(np.sum(xi), heed_feature.shape[1] - 1), "Xi sum should equal T-1"
+        assert np.isclose(
+            np.sum(gamma), heed_feature.shape[1]
+        ), "Gamma sum should equal T"
+        assert np.isclose(
+            np.sum(xi), heed_feature.shape[1] - 1
+        ), "Xi sum should equal T-1"
 
     print("\nInitial A matrix:")
     hmm_model.print_transition_matrix()
@@ -185,3 +189,64 @@ def test_update_transitions(hmm_model, heed_features):
 
     forward_probs = [hmm_model.A[i, i + 1] for i in range(1, hmm_model.num_states + 1)]
     print(f"\nForward transition probabilities: {[f'{p:.3f}' for p in forward_probs]}")
+
+
+def test_update_emissions(hmm_model, heed_features):
+    """
+    Basic test for emission parameter updates using 'heed' sequences.
+    Verifies fundamental properties of means and covariances after updates.
+    """
+    # Store initial parameters to check if they change
+    initial_means = hmm_model.B["mean"].copy()
+    initial_variances = hmm_model.B["covariance"].copy()
+    
+    # Use first three sequences for a simple test
+    gamma_per_seq = []
+    
+    # Compute gamma for each sequence
+    for features in heed_features:
+        emission_matrix = hmm_model.compute_log_emission_matrix(features)
+        alpha = hmm_model.forward(emission_matrix, use_log=True)
+        beta = hmm_model.backward(emission_matrix, use_log=True)
+        gamma = hmm_model.compute_gamma(alpha, beta, use_log=True)
+        gamma_per_seq.append(gamma)
+        
+        # Print basic sequence info for debugging
+        print(f"\nSequence length: {features.shape[1]} frames")
+        print(f"Gamma sum: {np.sum(gamma):.3f}")
+    
+    # Update emission parameters
+    hmm_model.update_B(heed_features, gamma_per_seq)
+    
+    # === Basic Verification Checks ===
+    
+    # 1. Check that parameters actually changed
+    assert not np.array_equal(initial_means, hmm_model.B["mean"]), \
+        "Means should be updated"
+    assert not np.array_equal(initial_variances, hmm_model.B["covariance"]), \
+        "Variances should be updated"
+    
+    # 2. Check mathematical validity
+    assert np.all(np.isfinite(hmm_model.B["mean"])), \
+        "All means should be finite"
+    assert np.all(np.isfinite(hmm_model.B["covariance"])), \
+        "All variances should be finite"
+    assert np.all(hmm_model.B["covariance"] > 0), \
+        "All variances should be positive"
+    
+    # Print before/after statistics for inspection
+    print("\nMean value ranges:")
+    print(f"Before: [{np.min(initial_means):.3f}, {np.max(initial_means):.3f}]")
+    print(f"After:  [{np.min(hmm_model.B['mean']):.3f}, {np.max(hmm_model.B['mean']):.3f}]")
+    
+    print("\nVariance ranges:")
+    print(f"Before: [{np.min(initial_variances):.3f}, {np.max(initial_variances):.3f}]")
+    print(f"After:  [{np.min(hmm_model.B['covariance']):.3f}, {np.max(hmm_model.B['covariance']):.3f}]")
+
+
+def test_baum_welch(hmm_model, heed_features):
+    """
+    Test the full Baum-Welch algorithm using the 'heed' sequences.
+    Verifies that the model parameters converge to a stable state.
+    """
+    hmm_model.baum_welch(heed_features)
