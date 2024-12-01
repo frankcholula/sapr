@@ -108,7 +108,7 @@ def baum_welch(observations_list, model):
     B = model.B
     means = model.B["mean"]
     covariances = model.B["covariancematrix"]
-
+    scale_factor = 1e24
     num_states = A.shape[0] - 2
     K = observations_list[0].shape[0]  # Dimensionality of feature space
 
@@ -116,6 +116,7 @@ def baum_welch(observations_list, model):
     # Initialize accumulators for re-estimation
     A_accum = np.zeros_like(A)
     means_accum = np.zeros_like(means)
+    print(means_accum)
     covariances_accum = np.zeros_like(covariances)
     gamma_sum_accum = np.zeros(num_states)
 
@@ -132,7 +133,7 @@ def baum_welch(observations_list, model):
             gamma[t, :] = alpha[t, :] * beta[t, :]
             gamma[t, :] /= np.sum(gamma[t, :])  # Normalize
 
-        # Accumulate gamma sums for re-estimation
+        # Accumulate gamma sums for re-estimation(capital gamma)
         gamma_sum_accum += np.sum(gamma, axis=0)
 
         # Calculate xi (state transition probabilities)
@@ -141,12 +142,12 @@ def baum_welch(observations_list, model):
             for i in range(num_states):
                 for j in range(num_states):
                     xi[t, i, j] = alpha[t-1, i] * A[i + 1, j + 1] * \
-                                    multivariate_gaussian(observations[:, t], means[:,j], covariances[j]) * \
+                                    multivariate_gaussian(observations[:, t], means[:,j], covariances[j])*scale_factor * \
                                     beta[t, j]
             #print(np.sum(xi[t, :, :]))
             xi[t, :, :] /= np.sum(xi[t, :, :])  # Normalize
 
-        # Accumulate transition matrix updates
+        # Accumulate transition matrix updates(Xij)
         for i in range(num_states):
             for j in range(num_states):
                 A_accum[i + 1, j + 1] += np.sum(xi[:, i, j])
@@ -154,9 +155,12 @@ def baum_welch(observations_list, model):
         # Accumulate mean and covariance updates
         for j in range(num_states):
             gamma_sum = np.sum(gamma[:, j])
+
             weighted_sum = np.sum(gamma[:, j][:, np.newaxis] * observations.T, axis=0)
-            means_accum[j] += weighted_sum
-            diff = observations.T - means[j]
+
+            means_accum[:,j] += weighted_sum
+            diff = observations.T - means[:,j]
+            
             covariances_accum[j] += np.sum(
                 gamma[:, j][:, np.newaxis, np.newaxis] *
                 np.einsum('ij,ik->ijk', diff, diff),
@@ -238,17 +242,17 @@ def viterbi_algorithm(observations, A, B):
 
 def train2_hmm():
     vocabs = [
-        #"heed",
-        # "hid",
-        # "head",
-        # "had",
-        # "hard",
-        # "hud",
-         "hod",
-        # "hoard",
+        "heed",
+        #"hid",
+        #"head",
+        #"had",
+        #"hard",
+        #"hud",
+        #"hod",
+        #"hoard",
         #"hood",
-        # "whod",
-        # "heard",
+        #"whod",
+        #"heard",
     ]
 
     feature_set = load_mfccs("feature_set")
@@ -258,8 +262,8 @@ def train2_hmm():
     
     hmms = {word: HMM(8, 13, feature_set, model_name=word) for word in vocabs}
     
-    model = hmms["hod"]
-    testing_feature = features["hod"]
+    model = hmms["heed"]
+    testing_feature = features["heed"]
     observations = testing_feature[7]
 
     #print(model.B["covariancematrix"][0].shape)
@@ -269,15 +273,20 @@ def train2_hmm():
     # Test for forward and backward compatible
     #print(multivariate_gaussian(observations[:, 0], model.B["mean"][:,0], model.B["covariancematrix"][0]) * new_beta[0, 0])
     #print(model.A[-2, -1] * new_alpha[-1, 7])
-    
-    #HMM.print_parameters(hmms["heed"])
+    new_model = baum_welch(testing_feature,model)
+    HMM.print_parameters(hmms["heed"])
 
-    #new_model = baum_welch(testing_feature,model)
-    print(viterbi_algorithm(observations,model.A,model.B))
-    
+    #print(viterbi_algorithm(observations,model.A,model.B))
+    HMM.print_parameters(new_model)
     
     # for word, hmm in hmms.items():
     #     hmm.baum_welch(features[word], 2)
+
+
+    #for word in vocabs:
+     #   print(f"Training HMM for {word}...")
+      #  hmms[word] = baum_welch(features[word], hmms[word])
+      #  print(f"Completed training for {word}")
 
 
 

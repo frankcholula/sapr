@@ -542,3 +542,4 @@ class HMM:
     #     # Apply variance floor
     #     var_floor = 0.01 * np.mean(updated_variances)
     #     self.B["covariance"] = np.maximum(updated_variances, var_floor)
+
