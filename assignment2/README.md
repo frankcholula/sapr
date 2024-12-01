@@ -26,4 +26,9 @@ To run the MFCC extraction, run
 ```bash
 make extract
 ```
+
+To run the initialisation of an HMM
+```bash
+python initialise_hmm.py
+```
 This creates a `feature_set` directory with the extracted MFCC features.
