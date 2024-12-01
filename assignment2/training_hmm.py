@@ -1,8 +1,8 @@
 import numpy as np
-import initialise_hmm as init
+import hmm as init
 from mfcc_extract import load_mfcc_class
 from mfcc_extract import load_mfccs
-
+from hmm import HMM
 
 
 def multivariate_gaussian(x, mean, covariance):
@@ -140,6 +140,7 @@ def baum_welch(observations_list, model, max_iters=10):
                         xi[t, i, j] = alpha[t-1, i] * A[i + 1, j + 1] * \
                                       multivariate_gaussian(observations[:, t], means[j], covariances[j]) * \
                                       beta[t, j]
+                print(np.sum(xi[t, :, :]))
                 xi[t, :, :] /= np.sum(xi[t, :, :])  # Normalize
 
             # Accumulate transition matrix updates
@@ -189,8 +190,9 @@ if __name__ == "__main__":
     class_one_trial = load_mfcc_class(TRAINING_FOLDER, class_num)
     
     feature_set = load_mfccs(TRAINING_FOLDER)
-   
-
+    
+    # class_one_hmm = HMM(num_states, 13, feature_set)
+    # class_one_hmm.print_parameters()
     global_mean = init.calculate_means(feature_set)
     global_covariance_matrix = init.create_covariance_matrix(init.calculate_variance(feature_set,global_mean))
     self_loop_prob = init.intialize_transition_prob(feature_set, num_states)
@@ -207,12 +209,18 @@ if __name__ == "__main__":
     #print(model["covariances"][0].shape)
     new_alpha = forward_algorithm(observations,model["A"],model["means"],model["covariances"])
     new_beta = backward_algorithm(observations,model["A"],model["means"],model["covariances"])
+    # print(new_beta[:, 0])
+    # print(new_beta[:, 7])
+
+    # TODO: use this as a test case to check forward and backward are working. 
+    print(multivariate_gaussian(observations[:, 0], model["means"][0], model["covariances"][0]) * new_beta[0, 0])
+    print(model["A"][-2, -1] * new_alpha[-1, 7])
+    
     #print(new_a)
-    #print(new_beta)
     new_model = baum_welch(class_one_trial,model,1)
-    print(new_model["A"])
-    print(new_model["means"])
-    print(new_model["covariances"])
+    # print(new_model["A"])
+    # print(new_model["means"])
+    # print(new_model["covariances"])
 # observations, A, means, covariances, pi)
 # states = [0, 1, 0, 2, 1]  # Hidden states
 # observations = feature_set[0]  # Observed sequence (indices into emission matrix)
