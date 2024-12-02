@@ -20,3 +20,11 @@ clean:
 .PHONY: test_emissions
 test_emissions:
 	@pytest tests/test_emissions.py
+
+.PHONY: debug
+debug:
+	@python debugging.py
+
+.PHONY: compare
+compare:
+	@python compare_training.py
