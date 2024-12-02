@@ -46,7 +46,7 @@ def evaluate_model(test_files, model_params, n_mfcc=13):
     predicted_labels = []
     
     for test_file in test_files:
-        word = test_file.split('.')[0]  # Assume filename format 'index_word.wav'
+        word = test_file.split('.')[0]  # Assume filename format 'word.wav'
         true_labels.append(word)
 
         # Extract MFCC features from the audio file
@@ -62,7 +62,7 @@ def evaluate_model(test_files, model_params, n_mfcc=13):
             if log_likelihood > best_log_likelihood:
                 best_log_likelihood = log_likelihood
                 predicted_label = label
-        
+
         predicted_labels.append(predicted_label)
 
     # Compute confusion matrix
