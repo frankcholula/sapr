@@ -31,7 +31,7 @@ pyenv global 3.9.6
 pip install poetry
 ```
 
-Once you have the correct Python version, you can install the dependencies by
+Finally, you can install the dependencies by
 ```bash
 poetry shell
 poetry install
