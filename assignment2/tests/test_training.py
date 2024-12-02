@@ -44,8 +44,8 @@ def test_emission_matrix(hmm_model, feature_set):
 
 def test_fb_probabilities(hmm_model, feature_set):
     emission_matrix = hmm_model.compute_emission_matrix(feature_set[0])
-    alpha = hmm_model.forward(emission_matrix, use_log=True)
-    beta = hmm_model.backward(emission_matrix, use_log=True)
+    alpha = hmm_model.forward(emission_matrix)
+    beta = hmm_model.backward(emission_matrix)
     T = emission_matrix.shape[1]
     # Test 1: First observation emission * first backward probability
     test1 = emission_matrix[0, 0] + beta[0, 0]
@@ -66,8 +66,8 @@ def test_fb_probabilities(hmm_model, feature_set):
 
 def test_gamma_xi_probabilities(hmm_model, feature_set):
     emission_matrix = hmm_model.compute_emission_matrix(feature_set[0])
-    alpha = hmm_model.forward(emission_matrix, use_log=True)
-    beta = hmm_model.backward(emission_matrix, use_log=True)
+    alpha = hmm_model.forward(emission_matrix)
+    beta = hmm_model.backward(emission_matrix)
     gamma = hmm_model.compute_gamma(alpha, beta)
     xi = hmm_model.compute_xi(alpha, beta, emission_matrix)
     assert xi.shape == (
@@ -100,12 +100,12 @@ def test_update_transitions(hmm_model, heed_features):
     for seq_idx, heed_feature in enumerate(heed_features):
         # Compute forward-backward statistics for this sequence
         emission_matrix = hmm_model.compute_emission_matrix(heed_feature)
-        alpha = hmm_model.forward(emission_matrix, use_log=True)
-        beta = hmm_model.backward(emission_matrix, use_log=True)
+        alpha = hmm_model.forward(emission_matrix)
+        beta = hmm_model.backward(emission_matrix)
 
         # Compute gamma and xi for this sequence
-        gamma = hmm_model.compute_gamma(alpha, beta, use_log=True)
-        xi = hmm_model.compute_xi(alpha, beta, emission_matrix, use_log=True)
+        gamma = hmm_model.compute_gamma(alpha, beta)
+        xi = hmm_model.compute_xi(alpha, beta, emission_matrix)
 
         # Accumulate statistics
         aggregated_gamma += np.sum(gamma, axis=1, keepdims=True)
@@ -205,9 +205,9 @@ def test_update_emissions(hmm_model, heed_features):
     # Compute gamma for each sequence
     for features in heed_features:
         emission_matrix = hmm_model.compute_emission_matrix(features)
-        alpha = hmm_model.forward(emission_matrix, use_log=True)
-        beta = hmm_model.backward(emission_matrix, use_log=True)
-        gamma = hmm_model.compute_gamma(alpha, beta, use_log=True)
+        alpha = hmm_model.forward(emission_matrix)
+        beta = hmm_model.backward(emission_matrix)
+        gamma = hmm_model.compute_gamma(alpha, beta)
         gamma_per_seq.append(gamma)
 
         # Print basic sequence info for debugging
