@@ -118,13 +118,10 @@ class HMM:
             normalization = np.sqrt((2 * np.pi) ** self.num_obs * determinant)
             emission_matrix[j] = np.exp(exponent) / normalization
         return emission_matrix
+    
 
-    # def compute_log_emission_matrix(self, features: np.ndarray) -> np.ndarray:
-    #     emission_matrix = self.compute_emission_matrix(features)
-    #     self.print_matrix(emission_matrix, "Emission Matrix (B)", col="T", idx="State", start_idx=1, start_col=1)
-    #     return np.log(emission_matrix)
 
-    def compute_log_emission_matrix(self, features: np.ndarray) -> np.ndarray:
+    def compute_emission_matrix(self, features: np.ndarray) -> np.ndarray:
         """
         For a multivariate Gaussian, the log probability is:
         log(p(x)) = -0.5 * (d*log(2π) + log(|Σ|) + (x-μ)ᵀΣ⁻¹(x-μ))
@@ -547,7 +544,7 @@ class HMM:
             # E-Step across all sequences
             for seq_idx, features in enumerate(features_list):
                 # Compute forward-backward statistics
-                log_B = self.compute_log_emission_matrix(features)
+                log_B = self.compute_emission_matrix(features)
                 alpha = self.forward(log_B, use_log=True)
                 beta = self.backward(log_B, use_log=True)
                 gamma = self.compute_gamma(alpha, beta, use_log=True)
