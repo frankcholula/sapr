@@ -9,6 +9,7 @@ You can download the training set on the Notion Page [here](https://www.notion.s
 This project uses Python version 3.9.6 and the dependencies are managed by Poetry.
 I recommend setting up `pyenv` to manage your Python versions and `poetry` to manage your dependencies.
 
+### Windows Users 🪟
 For Windows users, you can install `pyenv` using [pyen-win](https://github.com/pyenv-win/pyenv-win):
 ```bash
 Invoke-WebRequest -UseBasicParsing -Uri "https://raw.githubusercontent.com/pyenv-win/pyenv-win/master/pyenv-win/install-pyenv-win.ps1" -OutFile "./install-pyenv-win.ps1"; &"./install-pyenv-win.ps1"
@@ -17,7 +18,7 @@ Alternatively, you can also use chocolatey:
 ```bash
 choco install pyenv-win
 ```
-
+### Mac Users 🍎
 For Mac users, you can install `pyenv` using Homebrew:
 ```bash
 brew install pyenv
