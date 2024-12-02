@@ -151,6 +151,7 @@ class HMM:
 
     def compute_log_emission_matrix(self, features: np.ndarray) -> np.ndarray:
         emission_matrix = self.compute_emission_matrix(features)
+        self.print_matrix(emission_matrix, "Emission Matrix (B)", col="T", idx="State", start_idx=1, start_col=1)
         return np.log(emission_matrix)
 
     def forward(self, emission_matrix: np.ndarray, use_log=True) -> np.ndarray:

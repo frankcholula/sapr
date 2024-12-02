@@ -211,8 +211,8 @@ def test_update_emissions(hmm_model, heed_features):
         gamma_per_seq.append(gamma)
         
         # Print basic sequence info for debugging
-        print(f"\nSequence length: {features.shape[1]} frames")
-        print(f"Gamma sum: {np.sum(gamma):.3f}")
+        # print(f"\nSequence length: {features.shape[1]} frames")
+        # print(f"Gamma sum: {np.sum(gamma):.3f}")
     
     # Update emission parameters
     hmm_model.update_B(heed_features, gamma_per_seq)
@@ -248,4 +248,4 @@ def test_baum_welch(hmm_model, heed_features):
     Test the full Baum-Welch algorithm using the 'heed' sequences.
     Verifies that the model parameters converge to a stable state.
     """
-    hmm_model.baum_welch(heed_features)
+    hmm_model.baum_welch(heed_features, 1)
