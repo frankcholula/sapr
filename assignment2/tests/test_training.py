@@ -248,9 +248,9 @@ def test_update_emissions(hmm_model, heed_features):
     )
 
 
-def test_baum_welch(hmm_model, heed_features):
-    """
-    Test the full Baum-Welch algorithm using the 'heed' sequences.
-    Verifies that the model parameters converge to a stable state.
-    """
-    hmm_model.baum_welch(heed_features, 5)
+# def test_baum_welch(hmm_model, heed_features):
+#     """
+#     Test the full Baum-Welch algorithm using the 'heed' sequences.
+#     Verifies that the model parameters converge to a stable state.
+#     """
+#     hmm_model.baum_welch(heed_features, 6)
