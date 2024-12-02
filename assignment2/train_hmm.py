@@ -53,8 +53,9 @@ def train_hmm():
     hmms = {word: HMM(8, 13, feature_set, model_name=word) for word in vocabs}
 
     for word, hmm in hmms.items():
-        log_likelihoods = hmm.baum_welch(features[word], 15)
+        log_likelihoods = hmm.baum_welch(features[word], 100)
         plot_log_likelihood(log_likelihoods, word)
+        break
 
 
 if __name__ == "__main__":

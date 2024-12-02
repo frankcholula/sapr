@@ -4,6 +4,7 @@ import logging
 
 logging.basicConfig(level=logging.INFO)
 
+
 class HMM:
     def __init__(
         self,
@@ -149,10 +150,40 @@ class HMM:
             emission_matrix[j] = np.exp(exponent) / normalization
         return emission_matrix
 
+    # def compute_log_emission_matrix(self, features: np.ndarray) -> np.ndarray:
+    #     emission_matrix = self.compute_emission_matrix(features)
+    #     self.print_matrix(emission_matrix, "Emission Matrix (B)", col="T", idx="State", start_idx=1, start_col=1)
+    #     return np.log(emission_matrix)
+
     def compute_log_emission_matrix(self, features: np.ndarray) -> np.ndarray:
-        emission_matrix = self.compute_emission_matrix(features)
-        self.print_matrix(emission_matrix, "Emission Matrix (B)", col="T", idx="State", start_idx=1, start_col=1)
-        return np.log(emission_matrix)
+        """
+        For a multivariate Gaussian, the log probability is:
+        log(p(x)) = -0.5 * (d*log(2π) + log(|Σ|) + (x-μ)ᵀΣ⁻¹(x-μ))
+
+        Args:
+            features: Matrix of shape (num_features, T) containing MFCC features
+
+        Returns:
+            log_emission_matrix: Matrix of shape (num_states, T) containing log probabilities
+        """
+        T = features.shape[1]
+        log_emission_matrix = np.zeros((self.num_states, T))
+        const_term = -0.5 * self.num_obs * np.log(2 * np.pi)
+
+        for j in range(self.num_states):
+            # Compute log determinant term: -0.5 * log(|Σ|)
+            # For diagonal covariance, this is sum of logs
+            log_det = -0.5 * np.sum(np.log(self.B["covariance"][:, j]))
+
+            # Compute Mahalanobis distance term: -0.5 * (x-μ)ᵀΣ⁻¹(x-μ)
+            # For diagonal covariance, this simplifies to element-wise operations
+            diff = features - self.B["mean"][:, j : j + 1]
+            mahalanobis_squared = diff**2 / self.B["covariance"][:, j : j + 1]
+            mahalanobis_term = -0.5 * np.sum(mahalanobis_squared, axis=0)
+
+            # Combine all terms
+            log_emission_matrix[j] = const_term + log_det + mahalanobis_term
+        return log_emission_matrix
 
     def forward(self, emission_matrix: np.ndarray, use_log=True) -> np.ndarray:
         """
@@ -484,36 +515,37 @@ class HMM:
             f"Variance range: [{np.min(self.B['covariance']):.3f}, {np.max(self.B['covariance']):.3f}]"
         )
 
-
-    def baum_welch(self, features_list: list[np.ndarray], max_iter: int = 15, tol: float = 1e-4):
+    def baum_welch(
+        self, features_list: list[np.ndarray], max_iter: int = 15, tol: float = 1e-4
+    ):
         """
         Train the HMM using the Baum-Welch algorithm on multiple sequences.
         Returns the log likelihood values for each iteration to monitor convergence.
-        
+
         Args:
             features_list: List of observed feature matrices, each of shape (num_features, T).
             max_iter: Maximum number of iterations.
             tol: Convergence tolerance for log-likelihood improvement.
-        
+
         Returns:
             list[float]: Log likelihood values for each iteration
         """
         print(f"\nTraining `{self.model_name}` HMM using Baum-Welch algorithm...")
         prev_log_likelihood = float("-inf")
-        
+
         # Create list to store log likelihood for each iteration
         log_likelihood_history = []
 
         for iteration in range(max_iter):
             total_log_likelihood = 0
-            
+
             # Initialize accumulators for transition updates
             aggregated_gamma = np.zeros((self.num_states, 1))
             aggregated_xi = np.zeros((self.num_states, self.num_states))
-            
+
             # Store gamma values for each sequence
             gamma_per_seq = []
-            
+
             # E-Step across all sequences
             for seq_idx, features in enumerate(features_list):
                 # Compute forward-backward statistics
@@ -522,38 +554,40 @@ class HMM:
                 beta = self.backward(log_B, use_log=True)
                 gamma = self.compute_gamma(alpha, beta, use_log=True)
                 xi = self.compute_xi(alpha, beta, log_B, use_log=True)
-                
+
                 gamma_per_seq.append(gamma)
-                
+
                 # Accumulate statistics for transition updates
                 aggregated_gamma += np.sum(gamma, axis=1, keepdims=True)
                 aggregated_xi += np.sum(xi, axis=0)
-                
+
                 # Compute log-likelihood for this sequence
                 log_likelihood = np.logaddexp.reduce(alpha[:, -1])
                 total_log_likelihood += log_likelihood
-                
+
                 if len(features_list) > 10 and seq_idx % 10 == 0:
                     print(f"Processed sequence {seq_idx + 1}/{len(features_list)}...")
-            
+
             # Store the log likelihood for this iteration
             log_likelihood_history.append(total_log_likelihood)
-            
-            print(f"Iteration {iteration + 1}, Total Log-Likelihood: {total_log_likelihood}")
-            
+
+            print(
+                f"Iteration {iteration + 1}, Total Log-Likelihood: {total_log_likelihood}"
+            )
+
             # Check for convergence
             if abs(total_log_likelihood - prev_log_likelihood) < tol:
                 print(f"Converged after {iteration + 1} iterations!")
                 break
-                
+
             prev_log_likelihood = total_log_likelihood
-            
+
             # M-Step: Update model parameters
             self.update_A(aggregated_xi, aggregated_gamma)
             self.update_B(features_list, gamma_per_seq)
-        
+
         print("Baum-Welch training completed.")
-        
+
         # Print summary of likelihood changes
         total_improvement = log_likelihood_history[-1] - log_likelihood_history[0]
         print("\nTraining summary:")
