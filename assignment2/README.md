@@ -31,7 +31,7 @@ pyenv global 3.9.6
 pip install poetry
 ```
 
-Finally, you can install the dependencies by
+Finally, you can install the dependencies by running
 ```bash
 poetry shell
 poetry install
