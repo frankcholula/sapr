@@ -103,7 +103,6 @@ class HMM:
         print("\nB (emission parameters):")
         self.print_matrix(self.B["mean"], "Mean", idx="Feature", start_idx=1)
 
-
     def compute_emission_matrix(self, features: np.ndarray) -> np.ndarray:
         """
         Compute the emission matrix B using a 13-dimensional multivariate Gaussian.
@@ -144,14 +143,16 @@ class HMM:
             # Get state-specific parameters
             state_mean = self.B["mean"][:, j]
             state_covariance = self.B["covariance"][:, j]
-            
+
             # Compute log determinant term: -0.5 * log(|Σ|)
             # For diagonal covariance, this is sum of logs
             log_det = -0.5 * np.sum(np.log(state_covariance))
 
             # Compute Mahalanobis distance term: -0.5 * (x-μ)ᵀΣ⁻¹(x-μ)
             # For diagonal covariance, this simplifies to element-wise operations
-            diff = features - state_mean[:, np.newaxis]  # Broadcasting to match features shape
+            diff = (
+                features - state_mean[:, np.newaxis]
+            )  # Broadcasting to match features shape
             mahalanobis_squared = diff**2 / state_covariance[:, np.newaxis]
             mahalanobis_term = -0.5 * np.sum(mahalanobis_squared, axis=0)
 
@@ -441,9 +442,11 @@ class HMM:
                     # after self-transition probability is assigned
                     self.A[i + 1, i + 2] = 1.0 - self.A[i + 1, i + 1]
 
-    def update_B(self, training_features: list[np.ndarray], gamma_per_seq: list[np.ndarray]) -> None:
+    def update_B(
+        self, training_features: list[np.ndarray], gamma_per_seq: list[np.ndarray]
+    ) -> None:
         """
-        Update emission parameters (means and covariances) for each state using 
+        Update emission parameters (means and covariances) for each state using
         the weighted statistics from all training sequences.
 
         Args:
@@ -474,28 +477,34 @@ class HMM:
         for features, gamma in zip(training_features, gamma_per_seq):
             for j in range(self.num_states):
                 # Compute squared differences from state-specific mean
-                diff = features - self.B["mean"][:, j:j+1]
+                diff = features - self.B["mean"][:, j : j + 1]
                 sq_diff = diff**2
-                
+
                 # Weight the squared differences by gamma and sum
                 weighted_sq_diff_sum[:, j] += np.sum(gamma[j] * sq_diff, axis=1)
 
         # Update variances with normalization and flooring
         self.B["covariance"] = weighted_sq_diff_sum / (weighted_sum_gamma.T + eps)
-        
+
         # Apply variance flooring to prevent numerical issues
         # Use a state-specific floor based on the mean variance for that state
         for j in range(self.num_states):
             var_floor = 0.01 * np.mean(self.B["covariance"][:, j])
-            self.B["covariance"][:, j] = np.maximum(self.B["covariance"][:, j], var_floor)
+            self.B["covariance"][:, j] = np.maximum(
+                self.B["covariance"][:, j], var_floor
+            )
 
         # Print statistics for debugging
         print("\nEmission parameter update statistics:")
         print(f"Number of sequences processed: {len(training_features)}")
         print(f"Average gamma sum per state: {np.mean(weighted_sum_gamma):.3f}")
-        print(f"Mean range: [{np.min(self.B['mean']):.3f}, {np.max(self.B['mean']):.3f}]")
-        print(f"Variance range: [{np.min(self.B['covariance']):.3f}, {np.max(self.B['covariance']):.3f}]")
-        
+        print(
+            f"Mean range: [{np.min(self.B['mean']):.3f}, {np.max(self.B['mean']):.3f}]"
+        )
+        print(
+            f"Variance range: [{np.min(self.B['covariance']):.3f}, {np.max(self.B['covariance']):.3f}]"
+        )
+
         # Additional checks for numerical stability
         if not np.all(np.isfinite(self.B["mean"])):
             print("Warning: Non-finite values detected in means!")
