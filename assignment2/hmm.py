@@ -1,11 +1,8 @@
 import numpy as np
 import pandas as pd
-from mfcc_extract import load_mfccs
 import logging
-from matplotlib import pyplot as plt
 
 logging.basicConfig(level=logging.INFO)
-
 
 class HMM:
     def __init__(

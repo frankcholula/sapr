@@ -3,7 +3,6 @@ import numpy as np
 from hmm import HMM
 from mfcc_extract import load_mfccs, load_mfccs_by_word
 
-
 @pytest.fixture
 def feature_set():
     return load_mfccs("feature_set")
