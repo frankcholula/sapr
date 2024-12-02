@@ -449,20 +449,16 @@ class HMM:
             training_features: List of feature matrices, one per training sequence
             gamma_per_seq: List of gamma matrices corresponding to each training sequence
         """
-        # Initialize accumulators
         weighted_sum_features = np.zeros((self.num_obs, self.num_states))
         weighted_sum_gamma = np.zeros((self.num_states, 1))
 
         # First pass: Compute new means
         for features, gamma in zip(training_features, gamma_per_seq):
-            # Accumulate weighted features
             weighted_sum_features += np.dot(features, gamma.T)
             weighted_sum_gamma += np.sum(gamma, axis=1, keepdims=True)
 
         # Update means
-        # Avoid division by zero by using small epsilon
-        epsilon = 1e-10
-        self.B["mean"] = weighted_sum_features / (weighted_sum_gamma.T + epsilon)
+        self.B["mean"] = weighted_sum_features / (weighted_sum_gamma.T)
 
         # Initialize variance accumulator
         updated_variances = np.zeros_like(self.B["covariance"])
@@ -470,15 +466,12 @@ class HMM:
         # Second pass: Compute new variances using updated means
         for features, gamma in zip(training_features, gamma_per_seq):
             for j in range(self.num_states):
-                # Compute deviation from new mean
                 diff = features - self.B["mean"][:, j : j + 1]
-                # Weight the squared deviations by corresponding gamma values
                 weighted_sq_diff = np.sum(gamma[j] * (diff**2), axis=1)
-                # Accumulate for this sequence
                 updated_variances[:, j] += weighted_sq_diff
 
         # Normalize variances by total gamma counts
-        updated_variances /= weighted_sum_gamma.T + epsilon
+        updated_variances /= weighted_sum_gamma.T
 
         # Apply variance flooring to prevent numerical issues
         var_floor = 0.01 * np.mean(updated_variances)
