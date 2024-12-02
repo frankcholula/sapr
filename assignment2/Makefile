@@ -15,3 +15,8 @@ train:
 .PHONY: clean
 clean:
 	@rm -rf feature_set
+
+
+.PHONY: test_emissions
+test_emissions:
+	@pytest tests/test_emissions.py

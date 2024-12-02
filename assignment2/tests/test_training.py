@@ -119,12 +119,11 @@ def test_update_transitions(hmm_model, heed_features):
         ), "Xi sum should equal T-1"
 
     print("\nInitial A matrix:")
-    hmm_model.print_transition_matrix()
-
+    hmm_model.print_matrix(hmm_model.A, "Transition Matrix", col="State", idx="State")
     hmm_model.update_A(aggregated_xi, aggregated_gamma)
 
     print("\nUpdated A matrix:")
-    hmm_model.print_transition_matrix()
+    hmm_model.print_matrix(hmm_model.A, "Transition Matrix", col="State", idx="State")
 
     assert (
         hmm_model.A[0, 1] == 1.0

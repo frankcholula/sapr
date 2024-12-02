@@ -29,16 +29,17 @@ class HMM:
             self.init_parameters(feature_set)
 
     def init_parameters(self, feature_set: list[np.ndarray]) -> None:
-        self.mean = self.calculate_means(feature_set)
-        self.variance = self.calculate_variance(feature_set, self.mean)
+        global_mean = self.calculate_means(feature_set)
+        global_variance = self.calculate_variance(feature_set, global_mean)
         # Add variance floor
-        var_floor = 0.01 * np.mean(self.variance)
-        self.variance = np.maximum(self.variance, var_floor)
+        var_floor = 0.01 * np.mean(global_variance)
+        global_variance = np.maximum(global_variance, var_floor)
 
+        # Initialize A matrix
         self.A = self.initialize_transitions(feature_set, self.num_states)
         self.B = {
-            "mean": np.tile(self.mean[:, np.newaxis], (1, self.num_states)),
-            "covariance": np.tile(self.variance[:, np.newaxis], (1, self.num_states)),
+            "mean": np.tile(global_mean[:, np.newaxis], (1, self.num_states)),
+            "covariance": np.tile(global_variance[:, np.newaxis], (1, self.num_states)),
         }
         assert self.B["mean"].shape == (self.num_obs, self.num_states)
         assert self.B["covariance"].shape == (self.num_obs, self.num_states)
@@ -97,42 +98,11 @@ class HMM:
         print(f"\nπ (initial state distribution): {self.pi.round(3)}")
 
         print("\nA (transition matrix):")
-        self.print_transition_matrix()
+        self.print_matrix(self.A, "Transition Matrix", col="State", idx="State")
 
         print("\nB (emission parameters):")
-        self.print_emission_parameters()
+        self.print_matrix(self.B["mean"], "Mean", idx="Feature", start_idx=1)
 
-    def print_transition_matrix(self, precision: int = 3) -> None:
-        """
-        Print the transition matrix using pandas DataFrame for better formatting.
-        """
-        n = self.A.shape[0]
-        df = pd.DataFrame(
-            self.A,
-            columns=[f"S{i}" for i in range(n)],
-            index=[f"S{i}" for i in range(n)],
-        )
-
-        # Replace zeros with dots for cleaner visualization
-        df = df.replace(0, ".")
-        print(df.round(precision))
-
-    def print_emission_parameters(self, precision: int = 3) -> None:
-        print("\nMeans (each column is a state, each row is an MFCC coefficient):")
-        means_df = pd.DataFrame(
-            self.B["mean"],
-            columns=[f"State {i+1}" for i in range(self.num_states)],
-            index=[f"MFCC {i+1}" for i in range(self.num_obs)],
-        )
-        print(means_df.round(precision))
-
-        print("\nVariances (each column is a state, each row is an MFCC coefficient):")
-        cov_df = pd.DataFrame(
-            self.B["covariance"],
-            columns=[f"State {i+1}" for i in range(self.num_states)],
-            index=[f"MFCC {i+1}" for i in range(self.num_obs)],
-        )
-        print(cov_df.round(precision))
 
     def compute_emission_matrix(self, features: np.ndarray) -> np.ndarray:
         """
@@ -171,18 +141,23 @@ class HMM:
         const_term = -0.5 * self.num_obs * np.log(2 * np.pi)
 
         for j in range(self.num_states):
+            # Get state-specific parameters
+            state_mean = self.B["mean"][:, j]
+            state_covariance = self.B["covariance"][:, j]
+            
             # Compute log determinant term: -0.5 * log(|Σ|)
             # For diagonal covariance, this is sum of logs
-            log_det = -0.5 * np.sum(np.log(self.B["covariance"][:, j]))
+            log_det = -0.5 * np.sum(np.log(state_covariance))
 
             # Compute Mahalanobis distance term: -0.5 * (x-μ)ᵀΣ⁻¹(x-μ)
             # For diagonal covariance, this simplifies to element-wise operations
-            diff = features - self.B["mean"][:, j : j + 1]
-            mahalanobis_squared = diff**2 / self.B["covariance"][:, j : j + 1]
+            diff = features - state_mean[:, np.newaxis]  # Broadcasting to match features shape
+            mahalanobis_squared = diff**2 / state_covariance[:, np.newaxis]
             mahalanobis_term = -0.5 * np.sum(mahalanobis_squared, axis=0)
 
-            # Combine all terms
+            # Combine all terms for this state
             log_emission_matrix[j] = const_term + log_det + mahalanobis_term
+
         return log_emission_matrix
 
     def forward(self, emission_matrix: np.ndarray, use_log=True) -> np.ndarray:
@@ -466,54 +441,68 @@ class HMM:
                     # after self-transition probability is assigned
                     self.A[i + 1, i + 2] = 1.0 - self.A[i + 1, i + 1]
 
-    def update_B(
-        self, training_features: list[np.ndarray], gamma_per_seq: list[np.ndarray]
-    ) -> None:
+    def update_B(self, training_features: list[np.ndarray], gamma_per_seq: list[np.ndarray]) -> None:
         """
-        Update emission parameters (means and covariances) using multiple training sequences.
+        Update emission parameters (means and covariances) for each state using 
+        the weighted statistics from all training sequences.
 
         Args:
-            training_features: List of feature matrices, one per training sequence
-            gamma_per_seq: List of gamma matrices corresponding to each training sequence
+            training_features: List of feature matrices, each of shape (num_features, T)
+            gamma_per_seq: List of gamma matrices, each of shape (num_states, T),
+                        containing state occupation probabilities
         """
+        # Initialize accumulators for means
         weighted_sum_features = np.zeros((self.num_obs, self.num_states))
         weighted_sum_gamma = np.zeros((self.num_states, 1))
 
-        # First pass: Compute new means
+        # First pass: Compute new means for each state
         for features, gamma in zip(training_features, gamma_per_seq):
+            # features: (num_obs, T), gamma: (num_states, T)
+            # weighted_sum_features will be (num_obs, num_states)
             weighted_sum_features += np.dot(features, gamma.T)
             weighted_sum_gamma += np.sum(gamma, axis=1, keepdims=True)
 
-        # Update means
-        self.B["mean"] = weighted_sum_features / (weighted_sum_gamma.T)
+        # Avoid division by zero by adding small epsilon
+        eps = 1e-10
+        # Update means - shape: (num_obs, num_states)
+        self.B["mean"] = weighted_sum_features / (weighted_sum_gamma.T + eps)
 
         # Initialize variance accumulator
-        updated_variances = np.zeros_like(self.B["covariance"])
+        weighted_sq_diff_sum = np.zeros((self.num_obs, self.num_states))
 
         # Second pass: Compute new variances using updated means
         for features, gamma in zip(training_features, gamma_per_seq):
             for j in range(self.num_states):
-                diff = features - self.B["mean"][:, j : j + 1]
-                weighted_sq_diff = np.sum(gamma[j] * (diff**2), axis=1)
-                updated_variances[:, j] += weighted_sq_diff
+                # Compute squared differences from state-specific mean
+                diff = features - self.B["mean"][:, j:j+1]
+                sq_diff = diff**2
+                
+                # Weight the squared differences by gamma and sum
+                weighted_sq_diff_sum[:, j] += np.sum(gamma[j] * sq_diff, axis=1)
 
-        # Normalize variances by total gamma counts
-        updated_variances /= weighted_sum_gamma.T
-
+        # Update variances with normalization and flooring
+        self.B["covariance"] = weighted_sq_diff_sum / (weighted_sum_gamma.T + eps)
+        
         # Apply variance flooring to prevent numerical issues
-        var_floor = 0.01 * np.mean(updated_variances)
-        self.B["covariance"] = np.maximum(updated_variances, var_floor)
+        # Use a state-specific floor based on the mean variance for that state
+        for j in range(self.num_states):
+            var_floor = 0.01 * np.mean(self.B["covariance"][:, j])
+            self.B["covariance"][:, j] = np.maximum(self.B["covariance"][:, j], var_floor)
 
-        # Print some statistics for debugging
+        # Print statistics for debugging
         print("\nEmission parameter update statistics:")
         print(f"Number of sequences processed: {len(training_features)}")
         print(f"Average gamma sum per state: {np.mean(weighted_sum_gamma):.3f}")
-        print(
-            f"Mean range: [{np.min(self.B['mean']):.3f}, {np.max(self.B['mean']):.3f}]"
-        )
-        print(
-            f"Variance range: [{np.min(self.B['covariance']):.3f}, {np.max(self.B['covariance']):.3f}]"
-        )
+        print(f"Mean range: [{np.min(self.B['mean']):.3f}, {np.max(self.B['mean']):.3f}]")
+        print(f"Variance range: [{np.min(self.B['covariance']):.3f}, {np.max(self.B['covariance']):.3f}]")
+        
+        # Additional checks for numerical stability
+        if not np.all(np.isfinite(self.B["mean"])):
+            print("Warning: Non-finite values detected in means!")
+        if not np.all(np.isfinite(self.B["covariance"])):
+            print("Warning: Non-finite values detected in variances!")
+        if np.any(self.B["covariance"] <= 0):
+            print("Warning: Non-positive variances detected!")
 
     def baum_welch(
         self, features_list: list[np.ndarray], max_iter: int = 15, tol: float = 1e-4
