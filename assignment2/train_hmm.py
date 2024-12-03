@@ -1,8 +1,11 @@
 import logging
 import numpy as np
+import pickle
+import os
+from pathlib import Path
 from custom_hmm import HMM
 from hmmlearn_hmm import HMMLearnModel
-from typing import Literal, List
+from typing import List, Literal, Dict
 from mfcc_extract import load_mfccs, load_mfccs_by_word
 from matplotlib import pyplot as plt
 
@@ -64,7 +67,13 @@ def pretty_print_matrix(matrix: np.ndarray, precision: int = 3) -> None:
     assert np.allclose(row_sums, 1.0), "Row sums should be equal to 1.0"
 
 
-def train_hmm(implementation: Literal["custom", "hmmlearn"] = "custom"):
+def save_model(model, model_path: Path) -> None:
+    with open(model_path, "wb") as f:
+        pickle.dump(model, f)
+    logging.info(f"Saved model to {model_path}")
+
+
+def train_hmm(implementation: Literal["custom", "hmmlearn"] = "hmmlearn") -> Dict[str, HMM]:
     vocabs = [
         "heed",
         "hid",
@@ -79,6 +88,9 @@ def train_hmm(implementation: Literal["custom", "hmmlearn"] = "custom"):
         "heard",
     ]
 
+    models_dir = Path("trained_models")
+    models_dir.mkdir(exist_ok=True)
+
     feature_set = load_mfccs("feature_set")
     features = {word: load_mfccs_by_word("feature_set", word) for word in vocabs}
     total_features_length = sum(len(features[word]) for word in vocabs)
@@ -86,18 +98,25 @@ def train_hmm(implementation: Literal["custom", "hmmlearn"] = "custom"):
 
     hmms = {}
     for word in vocabs:
-        if implementation == "custom":
-            hmms[word] = HMM(8, 13, feature_set, model_name=word)
-        elif implementation == "hmmlearn":
-            hmms[word] = HMMLearnModel(num_states=8, model_name=word)
+        logging.info(f"\nTraining model for word: {word}")
 
-    for word, hmm in hmms.items():
+        # Define model path based on implementation
+        model_path = models_dir / f"{word}_{implementation}.pkl"
+
         if implementation == "custom":
+            hmm = HMM(8, 13, feature_set, model_name=word)
             log_likelihoods = hmm.baum_welch(features[word], 15)
-        elif implementation == "hmmlearn":
-            hmm.fit(features[word])
+            trained_model = hmm
+        else:
+            hmm = HMMLearnModel(num_states=8, model_name=word)
+            trained_model, _ = hmm.fit(features[word])
             log_likelihoods = hmm.model.monitor_.history
+
         plot_training_progress(log_likelihoods, word)
+        save_model(trained_model, model_path)
+        hmms[word] = hmm
+
+    return hmms
 
 
 if __name__ == "__main__":
