@@ -1,14 +1,11 @@
 import logging
-import pickle
 import pandas as pd
-import os
 from pathlib import Path
 from custom_hmm import HMM
 from hmmlearn_hmm import HMMLearnModel
 from typing import Literal, Dict, Union
-from mfcc_extract import load_mfccs, load_mfccs_by_word
 from sklearn.metrics import confusion_matrix, accuracy_score
-from decoder import decode_sequence
+from decoder import Decoder
 
 logging.basicConfig(level=logging.INFO)
 logging.getLogger("matplotlib").setLevel(logging.WARNING)
@@ -16,82 +13,45 @@ logging.getLogger("matplotlib").setLevel(logging.WARNING)
 
 def eval_hmm(
     implementation: Literal["custom", "hmmlearn"] = "hmmlearn",
-) -> Dict[str, Union[HMM, HMMLearnModel]]:
-    vocabs = [
-        "heed",
-        "hid",
-        "head",
-        "had",
-        "hard",
-        "hud",
-        "hod",
-        "hoard",
-        "hood",
-        "whod",
-        "heard",
-    ]
-
-    models_dir = Path("trained_models")
-    models_dir.mkdir(exist_ok=True)
-    feature_set_path = "eval_feature_set"
-    feature_set = load_mfccs(feature_set_path)
-    features = {word: load_mfccs_by_word(feature_set_path, word) for word in vocabs}
-    total_features_length = sum(len(features[word]) for word in vocabs)
-    assert total_features_length == len(feature_set)
-
-    # Load trained models
-    hmms = {}
-    for word in vocabs:
-        model_path = os.path.join(models_dir, f"{word}_{implementation}.pkl")
-        with open(model_path, "rb") as f:
-            hmms[word] = pickle.load(f)
-
+    feature_set_path: str = "eval_feature_set"
+) -> Dict[str, Union[dict, float, pd.DataFrame]]:
+    
+    decoder = Decoder(implementation=implementation)
+    all_results = decoder.decode_vocabulary(feature_set_path, verbose=False)
+    
     true_labels = []
     predicted_labels = []
-
-    for true_word, mfcc_list in features.items():
-        for mfcc in mfcc_list:
-            predicted_word, log_prob, state_sequence = decode_sequence(hmms, mfcc.T)
-
-            true_labels.append(true_word)
-            predicted_labels.append(predicted_word)
-
-            # Log individual predictions
-            logging.debug(
-                f"True: {true_word}, Predicted: {predicted_word}, Log prob: {log_prob:.2f}"
-            )
-
-    # Calculate confusion matrix and accuracy
-    label_mapping = {word: idx for idx, word in enumerate(vocabs)}
+    
+    for word, results in all_results.items():
+        for result in results:
+            true_labels.append(result["true_word"])
+            predicted_labels.append(result["predicted_word"])
+    
+    label_mapping = {word: idx for idx, word in enumerate(decoder.vocab)}
     true_labels_idx = [label_mapping[label] for label in true_labels]
     predicted_labels_idx = [label_mapping[label] for label in predicted_labels]
 
     cm = confusion_matrix(true_labels_idx, predicted_labels_idx)
     accuracy = accuracy_score(true_labels_idx, predicted_labels_idx)
 
-    # Create a DataFrame for the confusion matrix
-    cm_df = pd.DataFrame(cm, index=vocabs, columns=vocabs)
-
-    # Log results
+    cm_df = pd.DataFrame(cm, index=decoder.vocab, columns=decoder.vocab)
     logging.info(f"\nConfusion Matrix:\n{cm_df}")
     logging.info(f"\nOverall Accuracy: {accuracy:.2%}")
 
-    # Calculate per-word accuracy
     logging.info("\nPer-word accuracy:")
-    for word in vocabs:
-        word_mask = [t == word for t in true_labels]
-        word_true = [t for t, m in zip(true_labels, word_mask) if m]
-        word_pred = [p for p, m in zip(predicted_labels, word_mask) if m]
-        word_accuracy = accuracy_score(word_true, word_pred)
+    for word, results in all_results.items():
+        word_correct = sum(r["correct"] for r in results)
+        word_total = len(results)
+        word_accuracy = word_correct / word_total
         logging.info(f"{word}: {word_accuracy:.2%}")
 
-    # Save confusion matrix to a CSV
-    output_path = models_dir / f"{implementation}_confusion_matrix_eval_set.csv"
+    models_dir = Path("trained_models")
+    output_path = models_dir / f"{implementation}_confusion_matrix_{Path(feature_set_path).stem}.csv"
     cm_df.to_csv(output_path)
     logging.info(f"\nSaved confusion matrix to: {output_path}")
 
     return {
-        "hmms": hmms,
+        "results": all_results,
         "accuracy": accuracy,
         "confusion_matrix": cm_df,
         "true_labels": true_labels,
@@ -100,5 +60,8 @@ def eval_hmm(
 
 
 if __name__ == "__main__":
-    print("\nEvaluating with `hmmlearn` implementation:")
-    results = eval_hmm("hmmlearn")
+    print("\nEvaluating development set:")
+    dev_results = eval_hmm("hmmlearn", "feature_set")
+    
+    print("\nEvaluating test set:")
+    test_results = eval_hmm("hmmlearn", "eval_feature_set")

@@ -15,7 +15,9 @@ train:
 .PHONY: clean
 clean:
 	@rm -rf feature_set
+	@rm -rf eval_feature_set
 	@rm -rf trained_models
+	
 
 .PHONY: decode
 decode:
