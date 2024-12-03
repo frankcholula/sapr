@@ -1,9 +1,7 @@
 import numpy as np
 import logging
-import pandas as pd
 from typing import List
 from hmmlearn import hmm
-from matplotlib import pyplot as plt
 from mfcc_extract import load_mfccs, load_mfccs_by_word
 
 logging.basicConfig(level=logging.INFO)
