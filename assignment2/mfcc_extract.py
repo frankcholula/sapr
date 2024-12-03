@@ -94,5 +94,3 @@ if __name__ == "__main__":
     extract_mfccs(TRAINING_FOLDER, "feature_set")
     TESTING_FOLDER = "eval_set"
     extract_mfccs(TESTING_FOLDER, "eval_feature_set")
-    all_features = load_mfccs("feature_set")
-    heed_features = load_mfccs_by_word("feature_set", "heed")
