@@ -27,14 +27,11 @@ def test_hmm_initialization(hmm_model):
         13,
     ), "Covariance matrix should be (total_states, num_obs)"
 
-    # Test variance floor was applied
-    var_floor = hmm_model.var_floor_factor * np.mean(hmm_model.global_variance)  # Changed here
+    var_floor = hmm_model.var_floor_factor * np.mean(hmm_model.global_variance)
     assert np.all(
         hmm_model.B["covariance"] >= var_floor
     ), "All variances should be >= variance floor"
 
-    # Test that means and covariances are properly tiled
-    # Since we initialize with global stats, all rows should be identical
     for i in range(1, total_states):
         np.testing.assert_array_almost_equal(
             hmm_model.B["mean"][0],
@@ -47,19 +44,17 @@ def test_hmm_initialization(hmm_model):
             err_msg="All state covariances should be identical at initialization",
         )
 
-    # Test if B parameters match global statistics
     np.testing.assert_array_almost_equal(
         hmm_model.B["mean"][0],
         hmm_model.global_mean,  # Added test for global_mean
-        err_msg="State means should match global mean at initialization"
+        err_msg="State means should match global mean at initialization",
     )
     np.testing.assert_array_almost_equal(
         hmm_model.B["covariance"][0],
         hmm_model.global_variance,  # Added test for global_variance
-        err_msg="State covariances should match global variance at initialization"
+        err_msg="State covariances should match global variance at initialization",
     )
 
-    # Test pi initialization
     assert hmm_model.pi.shape == (
         total_states,
     ), "Initial state probabilities should include entry/exit states"
@@ -67,5 +62,5 @@ def test_hmm_initialization(hmm_model):
     assert np.all(
         hmm_model.pi[1:] == 0.0
     ), "All other states should have probability 0.0"
-    
+
     hmm_model.print_transition_matrix()
