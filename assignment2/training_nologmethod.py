@@ -2,7 +2,7 @@ import numpy as np
 #import hmm as init
 from mfcc_extract import load_mfccs_by_word
 from mfcc_extract import load_mfccs
-from hmmlearn_hmm import HMM
+from custom_hmm import HMM
 
 
 def multivariate_gaussian(x, mean, covariance):
