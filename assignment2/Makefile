@@ -10,7 +10,15 @@ test:
 
 .PHONY: train
 train:
-	@python train_hmm.py
+	@python train.py
+
+.PHONY: decode
+decode:
+	@python decoder.py
+
+.PHONY: eval
+eval:
+	@python eval.py
 
 .PHONY: clean
 clean:
@@ -23,11 +31,3 @@ clean:
 clean_training:
 	@rm -rf trained_models/hmmlearn
 	@rm -rf trained_models/custom
-
-.PHONY: decode
-decode:
-	@python decoder.py
-
-.PHONY: eval
-eval:
-	@python eval.py
