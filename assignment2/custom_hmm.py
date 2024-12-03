@@ -12,14 +12,19 @@ class HMM:
         num_obs: int,
         feature_set: list[np.ndarray] = None,
         model_name: str = None,
+        var_floor_factor: float = 0.01,
     ):
         assert num_states > 0, "Number of states must be greater than 0."
         assert num_obs > 0, "Number of observations must be greater than 0."
         self.model_name = model_name
         self.num_states = num_states
         self.num_obs = num_obs
-        self.pi = np.zeros(num_states + 2) # need to include entrance and exit states
-        self.pi[0] = 1.0
+        self.var_floor_factor = var_floor_factor
+        self.total_states = num_states + 2  # Add this line
+
+        # Update pi initialization to use total_states
+        self.pi = np.zeros(self.total_states)
+        self.pi[0] = 1.0  # Only entry state has non-zero probability
 
         if feature_set is not None:
             assert all(
@@ -30,19 +35,18 @@ class HMM:
     def init_parameters(self, feature_set: list[np.ndarray]) -> None:
         self.mean = self.calculate_means(feature_set)
         self.variance = self.calculate_variance(feature_set, self.mean)
-        # Add variance floor
-        var_floor = 0.01 * np.mean(self.variance)
+        var_floor = self.var_floor_factor * np.mean(self.variance)
         self.variance = np.maximum(self.variance, var_floor)
 
         self.A = self.initialize_transitions(feature_set, self.num_states)
-        self.B = {
-            "mean": np.tile(self.mean[:, np.newaxis], (1, self.num_states)),
-            "covariance": np.tile(self.variance[:, np.newaxis], (1, self.num_states)),
-            # Added this as It seems above is not the covariance matrix
-            "covariancematrix":np.array([np.diag(self.variance)] * self.num_states),
-        }
-        assert self.B["mean"].shape == (self.num_obs, self.num_states)
-        assert self.B["covariance"].shape == (self.num_obs, self.num_states)
+
+        means = np.tile(self.mean, (self.total_states, 1))
+        covars = np.tile(self.variance, (self.total_states, 1))
+
+        self.B = {"mean": means, "covariance": covars}
+
+        assert self.B["mean"].shape == (self.total_states, self.num_obs)
+        assert self.B["covariance"].shape == (self.total_states, self.num_obs)
 
     def calculate_means(self, feature_set: list[np.ndarray]) -> np.ndarray:
         """
