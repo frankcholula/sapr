@@ -1,4 +1,4 @@
-all: extract train
+all: clean extract train
 
 .PHONY: extract
 extract:
@@ -15,3 +15,8 @@ train:
 .PHONY: clean
 clean:
 	@rm -rf feature_set
+	@rm -rf trained_models
+
+.PHONY: hmmlearn
+hmmlearn:
+	@python hmmlearn_model.py

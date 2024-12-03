@@ -1,6 +1,6 @@
 import pytest
 import numpy as np
-from hmm import HMM
+from custom_hmm import HMM
 from mfcc_extract import load_mfccs
 
 @pytest.fixture
