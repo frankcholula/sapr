@@ -19,6 +19,11 @@ clean:
 	@rm -rf trained_models/hmmlearn
 	@rm -rf trained_models/custom
 
+.PHONY: clean_training
+clean_training:
+	@rm -rf trained_models/hmmlearn
+	@rm -rf trained_models/custom
+
 .PHONY: decode
 decode:
 	@python decoder.py

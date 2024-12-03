@@ -80,8 +80,9 @@ def log_per_word_accuracy(all_results: Dict) -> None:
 def eval_hmm(
     implementation: Literal["custom", "hmmlearn"] = "hmmlearn",
     feature_set_path: str = "eval_feature_set",
+    model_iter: int = 15
 ) -> Dict[str, Union[dict, float, pd.DataFrame]]:
-    decoder = Decoder(implementation=implementation)
+    decoder = Decoder(implementation=implementation, n_iter=model_iter)
     all_results = decoder.decode_vocabulary(feature_set_path, verbose=False)
 
     true_labels, predicted_labels = extract_labels(all_results)
@@ -105,7 +106,7 @@ def eval_hmm(
 
 if __name__ == "__main__":
     print("\nEvaluating development set:")
-    dev_results = eval_hmm("hmmlearn", "feature_set")
+    dev_results = eval_hmm("hmmlearn", "feature_set", model_iter=7)
 
     print("\nEvaluating test set:")
-    test_results = eval_hmm("hmmlearn", "eval_feature_set")
+    test_results = eval_hmm("hmmlearn", "eval_feature_set", model_iter=7)

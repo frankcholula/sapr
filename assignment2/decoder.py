@@ -9,26 +9,28 @@ logging.basicConfig(level=logging.INFO)
 
 
 class Decoder:
-    def __init__(self, models_dir: str = "trained_models", implementation: str = "hmmlearn"):
+    def __init__(self, models_dir: str = "trained_models", implementation: str = "hmmlearn", n_iter: int = 15):
         self.models_dir = Path(models_dir)
         self.implementation = implementation
+        self.n_iter = n_iter
         self.models: Dict = {}
         self.vocab: List[str] = []
         self.load_models()
 
     def load_models(self) -> None:
-        pattern = f"*_{self.implementation}.pkl"
+        impl_dir = self.models_dir / self.implementation
+        pattern = f"*_{self.implementation}_{self.n_iter}.pkl"
         
-        for model_path in self.models_dir.glob(pattern):
+        for model_path in impl_dir.glob(pattern):
             word = model_path.stem.split("_")[0]
             with open(model_path, "rb") as f:
                 self.models[word] = pickle.load(f)
                 self.vocab.append(word)
         
         if not self.models:
-            raise ValueError(f"No models found in {self.models_dir} with pattern {pattern}")
+            raise ValueError(f"No models found in {impl_dir} with pattern {pattern}")
         
-        logging.info(f"Loaded {len(self.models)} models for words: {', '.join(self.vocab)}")
+        logging.info(f"Loaded {len(self.models)} models from {impl_dir} for words: {', '.join(self.vocab)}")
 
     def decode_sequence(self, features: np.ndarray) -> Tuple[str, float, List[int]]:
         best_score = float("-inf")
@@ -90,7 +92,7 @@ class Decoder:
 
 
 if __name__ == "__main__":
-    decoder = Decoder()
+    decoder = Decoder(implementation="hmmlearn", n_iter=15)
     results = decoder.decode_vocabulary()
     
     all_predictions = [result["correct"] for word_results in results.values() for result in word_results]

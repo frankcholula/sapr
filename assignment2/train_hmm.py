@@ -125,4 +125,4 @@ def train_hmm(
 
 if __name__ == "__main__":
     print("\nTraining with `hmmlearn` implementation:")
-    train_hmm("hmmlearn", num_states=8, num_features=13, n_iter=15)
+    train_hmm("hmmlearn", num_states=8, num_features=13, n_iter=7)
