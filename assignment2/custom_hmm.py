@@ -18,8 +18,7 @@ class HMM:
         self.model_name = model_name
         self.num_states = num_states
         self.num_obs = num_obs
-        # Wrong length of pi before
-        self.pi = np.zeros(num_states)
+        self.pi = np.zeros(num_states + 2) # need to include entrance and exit states
         self.pi[0] = 1.0
 
         if feature_set is not None:
