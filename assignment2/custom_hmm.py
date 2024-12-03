@@ -12,7 +12,7 @@ class HMM:
         num_obs: int,
         feature_set: list[np.ndarray] = None,
         model_name: str = None,
-        var_floor_factor: float = 0.01,
+        var_floor_factor: float = 0.01
     ):
         assert num_states > 0, "Number of states must be greater than 0."
         assert num_obs > 0, "Number of observations must be greater than 0."
@@ -20,11 +20,10 @@ class HMM:
         self.num_states = num_states
         self.num_obs = num_obs
         self.var_floor_factor = var_floor_factor
-        self.total_states = num_states + 2  # Add this line
-
-        # Update pi initialization to use total_states
+        self.total_states = num_states + 2
+        
         self.pi = np.zeros(self.total_states)
-        self.pi[0] = 1.0  # Only entry state has non-zero probability
+        self.pi[0] = 1.0
 
         if feature_set is not None:
             assert all(
@@ -33,18 +32,24 @@ class HMM:
             self.init_parameters(feature_set)
 
     def init_parameters(self, feature_set: list[np.ndarray]) -> None:
-        self.mean = self.calculate_means(feature_set)
-        self.variance = self.calculate_variance(feature_set, self.mean)
-        var_floor = self.var_floor_factor * np.mean(self.variance)
-        self.variance = np.maximum(self.variance, var_floor)
+        # Rename to global_mean and global_variance
+        self.global_mean = self.calculate_means(feature_set)
+        self.global_variance = self.calculate_variance(feature_set, self.global_mean)
+        
+        var_floor = self.var_floor_factor * np.mean(self.global_variance)
+        self.global_variance = np.maximum(self.global_variance, var_floor)
 
         self.A = self.initialize_transitions(feature_set, self.num_states)
-
-        means = np.tile(self.mean, (self.total_states, 1))
-        covars = np.tile(self.variance, (self.total_states, 1))
-
-        self.B = {"mean": means, "covariance": covars}
-
+        
+        # Initialize B using global statistics
+        means = np.tile(self.global_mean, (self.total_states, 1))
+        covars = np.tile(self.global_variance, (self.total_states, 1))
+        
+        self.B = {
+            "mean": means,
+            "covariance": covars
+        }
+        
         assert self.B["mean"].shape == (self.total_states, self.num_obs)
         assert self.B["covariance"].shape == (self.total_states, self.num_obs)
 
@@ -120,7 +125,7 @@ class HMM:
 
         # Replace zeros with dots for cleaner visualization
         df = df.replace(0, ".")
-        print(df.round(precision))
+        print(f"\n{df.round(precision)}")
 
     def print_emission_parameters(self, precision: int = 3) -> None:
         # Print means
