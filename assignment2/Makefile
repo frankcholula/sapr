@@ -30,4 +30,4 @@ decode:
 
 .PHONY: eval
 eval:
-	@python eval_hmm.py
+	@python eval.py
