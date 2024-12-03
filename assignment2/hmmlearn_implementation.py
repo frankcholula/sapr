@@ -29,7 +29,8 @@ class HMMLearnModel:
             params="stmc",
             implementation="log",
             min_covar=0.01,
-            init_params=""
+            init_params="",
+            verbose=True,
         )
         
         self.model.means_ = np.tile(self.global_mean, (self.total_states, 1))
