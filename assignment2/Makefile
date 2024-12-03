@@ -18,4 +18,4 @@ clean:
 
 .PHONY: hmmlearn
 hmmlearn:
-	@python hmmlearn_implementation.py
+	@python hmmlearn_model.py
