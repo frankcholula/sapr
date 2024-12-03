@@ -1,16 +1,14 @@
 import logging
-import numpy as np
 import pickle
 import pandas as pd
 import os
 from pathlib import Path
 from custom_hmm import HMM
 from hmmlearn_hmm import HMMLearnModel
-from typing import List, Literal, Dict, Union
+from typing import Literal, Dict, Union
 from mfcc_extract import load_mfccs, load_mfccs_by_word
-from matplotlib import pyplot as plt
 from sklearn.metrics import confusion_matrix, accuracy_score
-
+from decode import decode_sequence
 
 logging.basicConfig(level=logging.INFO)
 logging.getLogger("matplotlib").setLevel(logging.WARNING)
@@ -47,13 +45,13 @@ def eval_hmm(
 
     for word in vocabs:
         model_path = os.path.join(models_dir, f"{word}_{implementation}.pkl")
-        hmms[word] = pickle.load(open(model_path, 'rb'))
+        hmms[word] = pickle.load(open(model_path, "rb"))
 
     # for word, model in hmms.items():
     #   logging.info(f"Model for '{word}': n_components={model.n_components}, covariance_type={model.covariance_type}")
     #   assert model.n_features == num_features, f"Feature size mismatch for word '{word}'"
-  
-  # Perform evaluation
+
+    # Perform evaluation
     for true_word, mfcc_list in features.items():
         for mfcc in mfcc_list:
             max_log_prob = float("-inf")
@@ -83,9 +81,7 @@ def eval_hmm(
     accuracy = accuracy_score(true_labels_idx, predicted_labels_idx)
 
     # Create a DataFrame for the confusion matrix
-    cm_df = pd.DataFrame(
-        cm, index=vocabs, columns=vocabs
-    )
+    cm_df = pd.DataFrame(cm, index=vocabs, columns=vocabs)
 
     # Log results
     logging.info(f"Confusion Matrix:\n{cm_df}")
@@ -99,7 +95,6 @@ def eval_hmm(
         "accuracy": accuracy,
         "confusion_matrix": cm_df,
     }
-
 
 
 if __name__ == "__main__":
