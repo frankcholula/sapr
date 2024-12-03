@@ -16,8 +16,8 @@ train:
 clean:
 	@rm -rf feature_set
 	@rm -rf eval_feature_set
-	@rm -rf trained_models
-	
+	@rm -rf trained_models/hmmlearn
+	@rm -rf trained_models/custom
 
 .PHONY: decode
 decode:
