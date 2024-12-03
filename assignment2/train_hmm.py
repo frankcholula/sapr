@@ -115,9 +115,11 @@ def train_hmm(
             hmm = HMM(num_states, num_features, feature_set, model_name=word)
             log_likelihoods = hmm.baum_welch(features[word], 15)
             trained_model = hmm
-        else:
+        elif implementation == "hmmlearn":
             hmm = HMMLearnModel(num_states=num_states, model_name=word)
+            # pretty_print_matrix(hmm.model.transmat_)
             trained_model, _ = hmm.fit(features[word])
+            # pretty_print_matrix(hmm.model.transmat_)
             log_likelihoods = hmm.model.monitor_.history
 
         training_histories[word] = log_likelihoods
