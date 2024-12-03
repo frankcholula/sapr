@@ -1,10 +1,10 @@
+import logging
+import numpy as np
 from hmm import HMM
 from hmmlearn_model import HMMLearnModel
+from typing import Literal, List
 from mfcc_extract import load_mfccs, load_mfccs_by_word
 from matplotlib import pyplot as plt
-import logging
-from typing import Literal, List
-import numpy as np
 
 logging.basicConfig(level=logging.INFO)
 logging.getLogger("matplotlib").setLevel(logging.WARNING)
