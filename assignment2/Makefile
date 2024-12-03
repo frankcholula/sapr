@@ -15,3 +15,7 @@ train:
 .PHONY: clean
 clean:
 	@rm -rf feature_set
+
+.PHONY: hmmlearn
+hmmlearn:
+	@python hmmlearn_implementation.py
