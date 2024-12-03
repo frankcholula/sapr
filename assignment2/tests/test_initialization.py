@@ -1,7 +1,9 @@
 import pytest
 import numpy as np
 from custom_hmm import HMM
+from hmmlearn_hmm import HMMLearnModel
 from mfcc_extract import load_mfccs
+from train import pretty_print_matrix
 
 
 @pytest.fixture
@@ -63,4 +65,6 @@ def test_hmm_initialization(hmm_model):
         hmm_model.pi[1:] == 0.0
     ), "All other states should have probability 0.0"
 
-    hmm_model.print_transition_matrix()
+    compare_model = HMMLearnModel(8, "test")
+    pretty_print_matrix(hmm_model.A)
+    pretty_print_matrix(compare_model.initialize_transmat())

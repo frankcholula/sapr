@@ -12,7 +12,7 @@ class HMM:
         num_obs: int,
         feature_set: list[np.ndarray] = None,
         model_name: str = None,
-        var_floor_factor: float = 0.01
+        var_floor_factor: float = 0.01,
     ):
         assert num_states > 0, "Number of states must be greater than 0."
         assert num_obs > 0, "Number of observations must be greater than 0."
@@ -21,7 +21,7 @@ class HMM:
         self.num_obs = num_obs
         self.var_floor_factor = var_floor_factor
         self.total_states = num_states + 2
-        
+
         self.pi = np.zeros(self.total_states)
         self.pi[0] = 1.0
 
@@ -35,21 +35,18 @@ class HMM:
         # Rename to global_mean and global_variance
         self.global_mean = self.calculate_means(feature_set)
         self.global_variance = self.calculate_variance(feature_set, self.global_mean)
-        
+
         var_floor = self.var_floor_factor * np.mean(self.global_variance)
         self.global_variance = np.maximum(self.global_variance, var_floor)
 
         self.A = self.initialize_transitions(feature_set, self.num_states)
-        
+
         # Initialize B using global statistics
         means = np.tile(self.global_mean, (self.total_states, 1))
         covars = np.tile(self.global_variance, (self.total_states, 1))
-        
-        self.B = {
-            "mean": means,
-            "covariance": covars
-        }
-        
+
+        self.B = {"mean": means, "covariance": covars}
+
         assert self.B["mean"].shape == (self.total_states, self.num_obs)
         assert self.B["covariance"].shape == (self.total_states, self.num_obs)
 
@@ -97,6 +94,8 @@ class HMM:
         for i in range(1, num_states + 1):
             A[i, i] = aii
             A[i, i + 1] = aij
+
+        A[-1, -1] = 1.0  # set exit state self-loop for easier computation
         return A
 
     def print_parameters(self):
@@ -111,21 +110,6 @@ class HMM:
 
         print("\nB (emission parameters):")
         self.print_emission_parameters()
-
-    def print_transition_matrix(self, precision: int = 3) -> None:
-        """
-        Print the transition matrix using pandas DataFrame for better formatting.
-        """
-        n = self.A.shape[0]
-        df = pd.DataFrame(
-            self.A,
-            columns=[f"S{i}" for i in range(n)],
-            index=[f"S{i}" for i in range(n)],
-        )
-
-        # Replace zeros with dots for cleaner visualization
-        df = df.replace(0, ".")
-        print(f"\n{df.round(precision)}")
 
     def print_emission_parameters(self, precision: int = 3) -> None:
         # Print means
