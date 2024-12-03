@@ -88,13 +88,13 @@ def train_hmm(implementation: Literal["custom", "hmmlearn"] = "custom"):
     for word in vocabs:
         if implementation == "custom":
             hmms[word] = HMM(8, 13, feature_set, model_name=word)
-        else:
+        elif implementation == "hmmlearn":
             hmms[word] = HMMLearnModel(num_states=8, model_name=word)
 
     for word, hmm in hmms.items():
         if implementation == "custom":
             log_likelihoods = hmm.baum_welch(features[word], 15)
-        else:
+        elif implementation == "hmmlearn":
             hmm.fit(features[word])
             log_likelihoods = hmm.model.monitor_.history
         plot_training_progress(log_likelihoods, word)
