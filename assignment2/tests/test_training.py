@@ -1,6 +1,6 @@
 import pytest
 import numpy as np
-from hmm import HMM
+from custom_hmm import HMM
 from mfcc_extract import load_mfccs, load_mfccs_by_word
 
 
@@ -17,6 +17,14 @@ def hmm_model(feature_set):
 @pytest.fixture
 def heed_features():
     return load_mfccs_by_word("feature_set", "heed")
+
+
+def test_global_mean(hmm_model, feature_set):
+    assert hmm_model.mean.shape == (13,)
+    assert np.allclose(
+        hmm_model.mean, np.mean(np.concatenate(feature_set, axis=1), axis=1)
+    ), "Global mean should be the mean of all features"
+    print(f"\nGlobal Mean:\n{hmm_model.mean}")
 
 
 def test_emission_matrix(hmm_model, feature_set):
@@ -199,10 +207,10 @@ def test_update_emissions(hmm_model, heed_features):
     # Store initial parameters to check if they change
     initial_means = hmm_model.B["mean"].copy()
     initial_variances = hmm_model.B["covariance"].copy()
-    
+
     # Use first three sequences for a simple test
     gamma_per_seq = []
-    
+
     # Compute gamma for each sequence
     for features in heed_features:
         emission_matrix = hmm_model.compute_log_emission_matrix(features)
@@ -210,22 +218,22 @@ def test_update_emissions(hmm_model, heed_features):
         beta = hmm_model.backward(emission_matrix, use_log=True)
         gamma = hmm_model.compute_gamma(alpha, beta, use_log=True)
         gamma_per_seq.append(gamma)
-        
+
         # Print basic sequence info for debugging
         print(f"\nSequence length: {features.shape[1]} frames")
         print(f"Gamma sum: {np.sum(gamma):.3f}")
-    
+
     # Update emission parameters
     hmm_model.update_B(heed_features, gamma_per_seq)
-    
+
     # === Basic Verification Checks ===
-    
+
     # 1. Check that parameters actually changed
     assert not np.array_equal(initial_means, hmm_model.B["mean"]), \
         "Means should be updated"
     assert not np.array_equal(initial_variances, hmm_model.B["covariance"]), \
         "Variances should be updated"
-    
+
     # 2. Check mathematical validity
     assert np.all(np.isfinite(hmm_model.B["mean"])), \
         "All means should be finite"
@@ -233,12 +241,12 @@ def test_update_emissions(hmm_model, heed_features):
         "All variances should be finite"
     assert np.all(hmm_model.B["covariance"] > 0), \
         "All variances should be positive"
-    
+
     # Print before/after statistics for inspection
     print("\nMean value ranges:")
     print(f"Before: [{np.min(initial_means):.3f}, {np.max(initial_means):.3f}]")
     print(f"After:  [{np.min(hmm_model.B['mean']):.3f}, {np.max(hmm_model.B['mean']):.3f}]")
-    
+
     print("\nVariance ranges:")
     print(f"Before: [{np.min(initial_variances):.3f}, {np.max(initial_variances):.3f}]")
     print(f"After:  [{np.min(hmm_model.B['covariance']):.3f}, {np.max(hmm_model.B['covariance']):.3f}]")
