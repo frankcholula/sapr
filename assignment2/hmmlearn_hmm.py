@@ -13,7 +13,7 @@ class HMMLearnModel:
         self,
         num_states: int = 8,
         model_name: str = None,
-        n_iter: int = 15,
+        n_iter: int = 10,
     ):
         self.model_name = model_name
         self.num_states = num_states

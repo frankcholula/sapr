@@ -35,7 +35,7 @@ def eval_hmm(
 
     models_dir = Path("trained_models")
     models_dir.mkdir(exist_ok=True)
-    feature_set_path = "eval_feature_set"
+    feature_set_path = "feature_set"
     feature_set = load_mfccs(feature_set_path)
     features = {word: load_mfccs_by_word(feature_set_path, word) for word in vocabs}
     total_features_length = sum(len(features[word]) for word in vocabs)
@@ -92,7 +92,7 @@ def eval_hmm(
     logging.info(f"Overall Accuracy: {accuracy:.2%}")
 
     # Save confusion matrix to a CSV
-    cm_df.to_csv(models_dir / f"{implementation}_confusion_matrix_eval_set.csv")
+    cm_df.to_csv(f"figures/10epochs_{implementation}_confusion_matrix_dev_set.csv")
 
     return {
         "hmms": hmms,
