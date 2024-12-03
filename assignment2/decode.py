@@ -3,7 +3,7 @@ from pathlib import Path
 import numpy as np
 from typing import List, Dict, Tuple
 import logging
-from mfcc_extract import load_mfccs, load_mfccs_by_word
+from mfcc_extract import load_mfccs_by_word
 
 logging.basicConfig(level=logging.INFO)
 
@@ -40,8 +40,7 @@ if __name__ == "__main__":
     logging.info(f"Loaded {len(models)} models")
 
     # Test with some sequences from feature set
-    test_words = ["heed", "head", "had"]  # Example test words
-
+    test_words = ["heed", "hid", "head", "had", "hard", "hud", "hod", "hoard", "hood", "whod", "heard"]
     print("\nDecoding test sequences:")
     for true_word in test_words:
         features = load_mfccs_by_word("feature_set", true_word)
