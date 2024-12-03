@@ -1,11 +1,14 @@
 import numpy as np
-from hmmlearn import hmm
-from typing import List
-from mfcc_extract import load_mfccs, load_mfccs_by_word
 import logging
 import pandas as pd
+from typing import List
+from hmmlearn import hmm
+from matplotlib import pyplot as plt
+from mfcc_extract import load_mfccs, load_mfccs_by_word
 
 logging.basicConfig(level=logging.INFO)
+logging.getLogger("matplotlib").setLevel(logging.WARNING)
+
 
 class HMMLearnModel:
     def __init__(
@@ -17,11 +20,11 @@ class HMMLearnModel:
         self.model_name = model_name
         self.num_states = num_states
         self.total_states = num_states + 2
-        
+
         self.all_features = load_mfccs("feature_set")
         self.global_mean = self.calc_global_mean(self.all_features)
         self.global_cov = self.calc_global_cov(self.all_features)
-        
+
         self.model = hmm.GaussianHMM(
             n_components=self.total_states,
             covariance_type="diag",
@@ -30,12 +33,12 @@ class HMMLearnModel:
             implementation="log",
             min_covar=0.01,
             init_params="",
-            verbose=True,
+            # verbose=True,
         )
-        
+
         self.model.means_ = np.tile(self.global_mean, (self.total_states, 1))
         self.model.covars_ = np.tile(self.global_cov, (self.total_states, 1))
-        
+
         self.model.transmat_ = self.initialize_transmat()
         self.model.startprob_ = np.zeros(self.total_states)
         self.model.startprob_[0] = 1.0
@@ -45,10 +48,10 @@ class HMMLearnModel:
         num_sequences = len(self.all_features)
         avg_frames = total_frames / num_sequences
         avg_frames_per_state = avg_frames / self.num_states
-        
+
         aii = np.exp(-1 / (avg_frames_per_state - 1))
         aij = 1 - aii
-        
+
         print(f"\nTransition probability initialization:")
         print(f"Total frames: {total_frames}")
         print(f"Number of sequences: {num_sequences}")
@@ -56,11 +59,11 @@ class HMMLearnModel:
         print(f"Average frames per state: {avg_frames_per_state:.2f}")
         print(f"Self-transition probability (aii): {aii:.3f}")
         print(f"Next-state transition probability (aij): {aij:.3f}")
-        
+
         transmat = np.zeros((self.total_states, self.total_states))
-        
+
         transmat[0, 1] = 1.0
-        
+
         # Real states
         for i in range(1, self.num_states + 1):
             if i < self.num_states:
@@ -70,9 +73,9 @@ class HMMLearnModel:
                 # Last real state
                 transmat[i, i] = aii
                 transmat[i, i + 1] = aij
-        
+
         transmat[self.num_states + 1, self.num_states + 1] = 1.0
-        
+
         return transmat
 
     def prepare_data(self, feature_set: List[np.ndarray]) -> np.ndarray:
@@ -100,20 +103,40 @@ class HMMLearnModel:
         try:
             self.model.fit(X, lengths)
             log_likelihood = self.model.score(X, lengths)
-            logging.info(f"Training completed with log likelihood: {log_likelihood}")
+
             return self.model, log_likelihood
         except Exception as e:
             logging.error(f"Error occurred while training {self.model_name} HMM: {e}")
+
+    def plot_training_progress(self, history: List[float]) -> None:
+        plt.figure(figsize=(10, 5))
+        plt.plot(range(len(history)), history, "b-", label="Log Likelihood")
+        plt.xlabel("Iteration")
+        plt.ylabel("Log Likelihood")
+        plt.title(f"Training Progress for {self.model_name}")
+        plt.grid(True)
+        plt.legend()
+        plt.show()
+
+        # Print numeric summary
+        print("\nTraining Summary:")
+        print(f"Initial log likelihood: {history[0]:.2f}")
+        print(f"Final log likelihood: {history[-1]:.2f}")
+        print(f"Total improvement: {history[-1] - history[0]:.2f}")
 
 
 def pretty_print_matrix(matrix: np.ndarray, precision: int = 3) -> None:
     n = matrix.shape[0]
     df = pd.DataFrame(
-        matrix, 
-        columns=[f"S{i}" if i != 0 and i != n-1 else ("Entry" if i == 0 else "Exit") 
-                for i in range(n)],
-        index=[f"S{i}" if i != 0 and i != n-1 else ("Entry" if i == 0 else "Exit") 
-               for i in range(n)]
+        matrix,
+        columns=[
+            f"S{i}" if i != 0 and i != n - 1 else ("Entry" if i == 0 else "Exit")
+            for i in range(n)
+        ],
+        index=[
+            f"S{i}" if i != 0 and i != n - 1 else ("Entry" if i == 0 else "Exit")
+            for i in range(n)
+        ],
     )
 
     row_sums = df.sum(axis=1).round(precision)
@@ -127,8 +150,9 @@ def pretty_print_matrix(matrix: np.ndarray, precision: int = 3) -> None:
 
 if __name__ == "__main__":
     myhmm = HMMLearnModel(8, model_name="heed")
-    print("\nInitial transition matrix:")
-    pretty_print_matrix(myhmm.model.transmat_)
+    # print("\nInitial transition matrix:")
+    # pretty_print_matrix(myhmm.model.transmat_)
     myhmm.fit(load_mfccs_by_word("feature_set", "heed"))
-    print("\nFinal transition matrix:")
-    pretty_print_matrix(myhmm.model.transmat_)
+    myhmm.plot_training_progress(myhmm.model.monitor_.history)
+    # print("\nFinal transition matrix:")
+    # pretty_print_matrix(myhmm.model.transmat_)
