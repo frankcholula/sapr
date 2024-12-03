@@ -1,4 +1,4 @@
-all: clean extract train decode
+all: clean extract train decode eval
 
 .PHONY: extract
 extract:
@@ -20,3 +20,7 @@ clean:
 .PHONY: decode
 decode:
 	@python decode.py
+
+.PHONY: eval
+eval:
+	@python eval.py
