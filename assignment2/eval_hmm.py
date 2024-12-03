@@ -1,10 +1,12 @@
 import logging
 import pandas as pd
+import numpy as np
 from pathlib import Path
 from typing import Literal, Dict, Union, List, Tuple
 from sklearn.metrics import confusion_matrix, accuracy_score
 from decoder import Decoder
-import numpy as np
+import seaborn as sns
+import matplotlib.pyplot as plt
 
 logging.basicConfig(level=logging.INFO)
 logging.getLogger("matplotlib").setLevel(logging.WARNING)
@@ -33,6 +35,39 @@ def calculate_metrics(true_labels: List[str], predicted_labels: List[str], vocab
     return cm, accuracy
 
 
+def plot_confusion_matrix(cm: np.ndarray, vocab: List[str], implementation: str, feature_set_path: str) -> None:
+    plt.figure(figsize=(12, 10))
+    
+    mask_correct = np.zeros_like(cm, dtype=bool)
+    np.fill_diagonal(mask_correct, True)
+    
+    cm_correct = np.ma.masked_array(cm, ~mask_correct)
+    cm_incorrect = np.ma.masked_array(cm, mask_correct)
+    
+    sns.heatmap(cm_incorrect, annot=True, cmap='Reds', fmt='d',
+                xticklabels=vocab, yticklabels=vocab, cbar=False)
+    
+    sns.heatmap(cm_correct, annot=True, cmap='Greens', fmt='d',
+                xticklabels=vocab, yticklabels=vocab, cbar=False)
+    
+    plt.title(f'Confusion Matrix - {implementation} ({Path(feature_set_path).stem})')
+    plt.xlabel('Predicted')
+    plt.ylabel('True')
+    
+    plt.xticks(rotation=45, ha='right')
+    plt.yticks(rotation=0)
+    
+    figures_dir = Path("figures")
+    figures_dir.mkdir(exist_ok=True)
+    
+    output_path = figures_dir / f"{implementation}_confusion_matrix_{Path(feature_set_path).stem}.png"
+    plt.tight_layout()
+    plt.savefig(output_path)
+    plt.close()
+    
+    logging.info(f"\nSaved confusion matrix plot to: {output_path}")
+
+
 def log_per_word_accuracy(all_results: Dict) -> None:
     logging.info("\nPer-word accuracy:")
     for word, results in all_results.items():
@@ -40,13 +75,6 @@ def log_per_word_accuracy(all_results: Dict) -> None:
         word_total = len(results)
         word_accuracy = word_correct / word_total
         logging.info(f"{word}: {word_accuracy:.2%}")
-
-
-def save_confusion_matrix(cm_df: pd.DataFrame, implementation: str, feature_set_path: str) -> None:
-    models_dir = Path("trained_models")
-    output_path = models_dir / f"{implementation}_confusion_matrix_{Path(feature_set_path).stem}.csv"
-    cm_df.to_csv(output_path)
-    logging.info(f"\nSaved confusion matrix to: {output_path}")
 
 
 def eval_hmm(
@@ -64,7 +92,7 @@ def eval_hmm(
     logging.info(f"\nOverall Accuracy: {accuracy:.2%}")
 
     log_per_word_accuracy(all_results)
-    save_confusion_matrix(cm_df, implementation, feature_set_path)
+    plot_confusion_matrix(cm, decoder.vocab, implementation, feature_set_path)
 
     return {
         "results": all_results,
