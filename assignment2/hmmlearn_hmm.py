@@ -111,9 +111,5 @@ class HMMLearnModel:
 
 if __name__ == "__main__":
     myhmm = HMMLearnModel(8, model_name="heed")
-    # print("\nInitial transition matrix:")
-    # pretty_print_matrix(myhmm.model.transmat_)
     myhmm.fit(load_mfccs_by_word("feature_set", "heed"))
     myhmm.plot_training_progress(myhmm.model.monitor_.history)
-    # print("\nFinal transition matrix:")
-    # pretty_print_matrix(myhmm.model.transmat_)

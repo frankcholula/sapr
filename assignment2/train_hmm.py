@@ -1,7 +1,7 @@
 import logging
 import numpy as np
-from hmm import HMM
-from hmmlearn_model import HMMLearnModel
+from custom_hmm import HMM
+from hmmlearn_hmm import HMMLearnModel
 from typing import Literal, List
 from mfcc_extract import load_mfccs, load_mfccs_by_word
 from matplotlib import pyplot as plt
@@ -102,9 +102,9 @@ def train_hmm(implementation: Literal["custom", "hmmlearn"] = "custom"):
 
 if __name__ == "__main__":
     # Use original implementation
-    # print("Training with custom implementation:")
+    # print("Training with `custom` implementation:")
     # train_hmm("custom")
 
     # Use hmmlearn implementation
-    print("\nTraining with hmmlearn implementation:")
+    print("\nTraining with `hmmlearn` implementation:")
     train_hmm("hmmlearn")
