@@ -1,4 +1,4 @@
-all: clean extract train decode eval
+all: clean extract train eval
 
 .PHONY: extract
 extract:
@@ -15,12 +15,19 @@ train:
 .PHONY: clean
 clean:
 	@rm -rf feature_set
-	@rm -rf trained_models
+	@rm -rf eval_feature_set
+	@rm -rf trained_models/hmmlearn
+	@rm -rf trained_models/custom
+
+.PHONY: clean_training
+clean_training:
+	@rm -rf trained_models/hmmlearn
+	@rm -rf trained_models/custom
 
 .PHONY: decode
 decode:
-	@python decode.py
+	@python decoder.py
 
 .PHONY: eval
 eval:
-	@python eval.py
+	@python eval_hmm.py
