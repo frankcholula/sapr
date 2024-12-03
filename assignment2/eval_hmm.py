@@ -8,7 +8,7 @@ from hmmlearn_hmm import HMMLearnModel
 from typing import Literal, Dict, Union
 from mfcc_extract import load_mfccs, load_mfccs_by_word
 from sklearn.metrics import confusion_matrix, accuracy_score
-from decode import decode_sequence
+from decoder import decode_sequence
 
 logging.basicConfig(level=logging.INFO)
 logging.getLogger("matplotlib").setLevel(logging.WARNING)
@@ -49,19 +49,17 @@ def eval_hmm(
     true_labels = []
     predicted_labels = []
 
-    # Perform evaluation using decode_sequence
     for true_word, mfcc_list in features.items():
         for mfcc in mfcc_list:
-            # Use decode_sequence from decode.py
-            predicted_word, log_prob, state_sequence = decode_sequence(
-                hmms, mfcc.T
-            )
-            
+            predicted_word, log_prob, state_sequence = decode_sequence(hmms, mfcc.T)
+
             true_labels.append(true_word)
             predicted_labels.append(predicted_word)
 
-            # Optional: Log individual predictions
-            logging.debug(f"True: {true_word}, Predicted: {predicted_word}, Log prob: {log_prob:.2f}")
+            # Log individual predictions
+            logging.debug(
+                f"True: {true_word}, Predicted: {predicted_word}, Log prob: {log_prob:.2f}"
+            )
 
     # Calculate confusion matrix and accuracy
     label_mapping = {word: idx for idx, word in enumerate(vocabs)}
@@ -97,7 +95,7 @@ def eval_hmm(
         "accuracy": accuracy,
         "confusion_matrix": cm_df,
         "true_labels": true_labels,
-        "predicted_labels": predicted_labels
+        "predicted_labels": predicted_labels,
     }
 
 
