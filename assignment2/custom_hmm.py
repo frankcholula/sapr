@@ -2,7 +2,6 @@ import numpy as np
 import pandas as pd
 import logging
 
-
 logging.basicConfig(level=logging.INFO)
 
 
@@ -19,8 +18,8 @@ class HMM:
         self.model_name = model_name
         self.num_states = num_states
         self.num_obs = num_obs
-
-        self.pi = np.zeros(num_states + 2)
+        # Wrong length of pi before
+        self.pi = np.zeros(num_states)
         self.pi[0] = 1.0
 
         if feature_set is not None:
@@ -40,6 +39,8 @@ class HMM:
         self.B = {
             "mean": np.tile(self.mean[:, np.newaxis], (1, self.num_states)),
             "covariance": np.tile(self.variance[:, np.newaxis], (1, self.num_states)),
+            # Added this as It seems above is not the covariance matrix
+            "covariancematrix":np.array([np.diag(self.variance)] * self.num_states),
         }
         assert self.B["mean"].shape == (self.num_obs, self.num_states)
         assert self.B["covariance"].shape == (self.num_obs, self.num_states)
