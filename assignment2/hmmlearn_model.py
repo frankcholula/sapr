@@ -108,45 +108,6 @@ class HMMLearnModel:
         except Exception as e:
             logging.error(f"Error occurred while training {self.model_name} HMM: {e}")
 
-    def plot_training_progress(self, history: List[float]) -> None:
-        plt.figure(figsize=(10, 5))
-        plt.plot(range(len(history)), history, "b-", label="Log Likelihood")
-        plt.xlabel("Iteration")
-        plt.ylabel("Log Likelihood")
-        plt.title(f"Training Progress for {self.model_name}")
-        plt.grid(True)
-        plt.legend()
-        plt.show()
-
-        # Print numeric summary
-        print("\nTraining Summary:")
-        print(f"Initial log likelihood: {history[0]:.2f}")
-        print(f"Final log likelihood: {history[-1]:.2f}")
-        print(f"Total improvement: {history[-1] - history[0]:.2f}")
-
-
-def pretty_print_matrix(matrix: np.ndarray, precision: int = 3) -> None:
-    n = matrix.shape[0]
-    df = pd.DataFrame(
-        matrix,
-        columns=[
-            f"S{i}" if i != 0 and i != n - 1 else ("Entry" if i == 0 else "Exit")
-            for i in range(n)
-        ],
-        index=[
-            f"S{i}" if i != 0 and i != n - 1 else ("Entry" if i == 0 else "Exit")
-            for i in range(n)
-        ],
-    )
-
-    row_sums = df.sum(axis=1).round(precision)
-    df = df.replace(0, ".")
-
-    print("\nTransition Matrix:")
-    print("==================")
-    print(df.round(precision))
-    assert np.allclose(row_sums, 1.0), "Row sums should be equal to 1.0"
-
 
 if __name__ == "__main__":
     myhmm = HMMLearnModel(8, model_name="heed")
