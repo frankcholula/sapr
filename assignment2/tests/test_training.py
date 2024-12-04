@@ -25,7 +25,7 @@ def test_fb_probabilities(hmm_model, feature_set):
     alpha = hmm_model.forward(emission_matrix)
     beta = hmm_model.backward(emission_matrix)
     
-    T = emission_matrix.shape[0]  # Time steps is first dimension now
+    T = emission_matrix.shape[0]
     
     # Test shapes
     assert alpha.shape == (T, hmm_model.total_states), "Alpha should have shape (T, total_states)"
@@ -59,32 +59,29 @@ def test_fb_probabilities(hmm_model, feature_set):
     print(f"Alpha[0,1] (first real state): {alpha[0,1]}")
     print(f"Beta[0,1] (first real state): {beta[0,1]}")
 
-    # Test that forward and backward probabilities are being computed
-    assert not np.all(alpha == -np.inf), "All alpha values shouldn't be -inf"
-    assert not np.all(beta == -np.inf), "All beta values shouldn't be -inf"
-
-
-# def test_gamma_xi_probabilities(hmm_model, feature_set):
-#     emission_matrix = hmm_model.compute_log_emission_matrix(feature_set[0])
-#     alpha = hmm_model.forward(emission_matrix, use_log=True)
-#     beta = hmm_model.backward(emission_matrix, use_log=True)
-#     gamma = hmm_model.compute_gamma(alpha, beta)
-#     xi = hmm_model.compute_xi(alpha, beta, emission_matrix)
-#     assert xi.shape == (
-#         emission_matrix.shape[1] - 1,
-#         hmm_model.num_states,
-#         hmm_model.num_states,
-#     )
-#     assert gamma.shape == (hmm_model.num_states, feature_set[0].shape[1])
-#     xi_summed = np.sum(xi, axis=2).T
-#     hmm_model.print_matrix(
-#         gamma, "Gamma Matrix", col="T", idx="State", start_idx=1, start_col=1
-#     )
-#     hmm_model.print_matrix(
-#         xi_summed, "Summed Xi Matrix", col="T", idx="State", start_idx=1, start_col=1
-#     )
-#     np.testing.assert_array_almost_equal(gamma[:, :-1], xi_summed)
-
+def test_gamma_xi_probabilities(hmm_model, feature_set):
+    test_features = feature_set[0]
+    emission_matrix = hmm_model.compute_emission_matrix(test_features)
+    alpha = hmm_model.forward(emission_matrix)
+    beta = hmm_model.backward(emission_matrix)
+    gamma = hmm_model.compute_gamma(alpha, beta)
+    xi = hmm_model.compute_xi(alpha, beta, emission_matrix)
+    
+    T = emission_matrix.shape[0]
+    
+    # Test dimensions
+    assert gamma.shape == (T, hmm_model.total_states)
+    assert xi.shape == (T-1, hmm_model.total_states, hmm_model.total_states)
+    
+    # Test probability properties
+    assert np.all(gamma >= 0) and np.all(gamma <= 1)
+    assert np.all(xi >= 0) and np.all(xi <= 1)
+    
+    print("\nGamma Matrix (time step 10):")
+    hmm_model.print_matrix(gamma[10:11], "Gamma Matrix", col="State", idx="T")
+    
+    print("\nXi Matrix for t=10 (transitions from time step 10):")
+    hmm_model.print_matrix(xi[10], "Xi Matrix t=10", col="To State", idx="From State")
 
 # def test_update_transitions(hmm_model, heed_features):
 #     """

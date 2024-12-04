@@ -204,83 +204,79 @@ class HMM:
                     beta[t, j] = np.logaddexp(self_loop, to_next)
         return beta
 
-    def compute_gamma(
-        self, alpha: np.ndarray, beta: np.ndarray, use_log=True
-    ) -> np.ndarray:
+    def compute_gamma(self, alpha: np.ndarray, beta: np.ndarray) -> np.ndarray:
         """
-        Compute state occupation likelihood γ(t,j) for each state j and time t.
-
-        Args:
-            alpha: Forward probabilities of shape (num_states + 2, T)
-            beta: Backward probabilities of shape (num_states + 2, T)
-            use_log: Whether probabilities are in log space
-
-        Returns:
-            gamma: State occupation likelihoods of shape (num_states, T)
-                  Only includes real states (not entry/exit)
+        Compute state occupation likelihood γ(t,j) in log space.
         """
-        if use_log:
-            # Sum alpha and beta in log space
-            log_gamma = alpha + beta
-            # Compute normalization term for each time step
-            log_norm = np.logaddexp.reduce(log_gamma, axis=0)
-            # Normalize (subtract in log space = divide in normal space)
-            log_gamma = log_gamma - log_norm
-            # Convert back to normal space and return only real states
-            gamma = np.exp(log_gamma[1:-1])
-        else:
-            gamma = alpha * beta
-            gamma = gamma / np.sum(gamma, axis=0)
-            gamma = gamma[1:-1]
+        log_gamma = alpha + beta
+        log_norm = np.logaddexp.reduce(log_gamma, axis=1, keepdims=True)
+        log_gamma = log_gamma - log_norm
+        gamma = np.exp(log_gamma)
+
         return gamma
 
     def compute_xi(
-        self,
-        alpha: np.ndarray,
-        beta: np.ndarray,
-        emission_matrix: np.ndarray,
-        use_log=True,
+        self, alpha: np.ndarray, beta: np.ndarray, emission_matrix: np.ndarray
     ) -> np.ndarray:
-        """Calculate the probability of transitioning between states at each time step."""
-        T = alpha.shape[1]
-        xi = np.zeros((T - 1, self.num_states, self.num_states))
+        """
+        Calculate the probability of transitioning between states at each time step.
+        """
+        T = alpha.shape[0]
+        # Initialize with zeros instead of -inf
+        xi = np.zeros((T - 1, self.total_states, self.total_states))
+        log_likelihood = np.logaddexp.reduce(alpha[-1])
 
-        # Helper function to compute transition probability
-        def compute_transition_prob(t, i, j):
-            """Calculate probability of transitioning from state i to j at time t.
-            xi(t,i,j) = [alpha(t,i) * a_ij * b_j(O_t+1) * beta(t+1,j)] / P(O|lambda)
-            """
-            if use_log:
-                prob = (
-                    alpha[i + 1, t]  # Being in state i
-                    + np.log(self.A[i + 1, j + 1])  # Transitioning to state j
-                    + emission_matrix[j, t + 1]  # Observing next symbol in state j
-                    + beta[j + 1, t + 1]  # Future observations from state j
-                    - np.logaddexp.reduce(alpha[:, -1])
-                )  # Normalize by total probability
-                return np.exp(prob)
-            else:
-                return (
-                    alpha[i + 1, t]
-                    * self.A[i + 1, j + 1]
-                    * emission_matrix[j, t + 1]
-                    * beta[j + 1, t + 1]
-                ) / np.sum(alpha[:, -1])
-
-        # Calculate probabilities for each time step
         for t in range(T - 1):
-            for i in range(self.num_states):
-                # Only compute allowed transitions in left-right HMM:
-                # 1. Self-transition (stay in same state)
-                xi[t, i, i] = compute_transition_prob(t, i, i)
+            # Entry state only transitions to first real state
+            xi[t, 0, 1] = np.exp(
+                alpha[t, 0]
+                + np.log(self.A[0, 1])
+                + emission_matrix[t + 1, 1]
+                + beta[t + 1, 1]
+                - log_likelihood
+            )
 
-                # 2. Forward transition (move to next state)
-                if i < self.num_states - 1:
-                    xi[t, i, i + 1] = compute_transition_prob(t, i, i + 1)
+            # Real states can only self-loop or go to next state
+            for i in range(1, self.total_states - 1):
+                if self.A[i, i] > 0:  # Self-loop
+                    xi[t, i, i] = np.exp(
+                        alpha[t, i]
+                        + np.log(self.A[i, i])
+                        + emission_matrix[t + 1, i]
+                        + beta[t + 1, i]
+                        - log_likelihood
+                    )
 
-            # Normalize probabilities at each time step
-            if np.sum(xi[t]) > 0:  # Avoid division by zero
-                xi[t] = xi[t] / np.sum(xi[t])
+                if i < self.total_states - 2:  # Forward transition
+                    xi[t, i, i + 1] = np.exp(
+                        alpha[t, i]
+                        + np.log(self.A[i, i + 1])
+                        + emission_matrix[t + 1, i + 1]
+                        + beta[t + 1, i + 1]
+                        - log_likelihood
+                    )
+
+            # Last real state to exit
+            xi[t, -2, -1] = np.exp(
+                alpha[t, -2]
+                + np.log(self.A[-2, -1])
+                + emission_matrix[t + 1, -1]
+                + beta[t + 1, -1]
+                - log_likelihood
+            )
+
+            # Exit state self-loop
+            xi[t, -1, -1] = np.exp(
+                alpha[t, -1]
+                + np.log(self.A[-1, -1])
+                + emission_matrix[t + 1, -1]
+                + beta[t + 1, -1]
+                - log_likelihood
+            )
+
+            # Normalize
+            if np.sum(xi[t]) > 0:
+                xi[t] /= np.sum(xi[t])
 
         return xi
 
