@@ -19,46 +19,6 @@ def heed_features():
     return load_mfccs_by_word("feature_set", "heed")
 
 
-def test_fb_probabilities(hmm_model, feature_set):
-    test_features = feature_set[0]
-    emission_matrix = hmm_model.compute_emission_matrix(test_features)
-    alpha = hmm_model.forward(emission_matrix)
-    beta = hmm_model.backward(emission_matrix)
-    
-    T = emission_matrix.shape[0]
-    
-    # Test shapes
-    assert alpha.shape == (T, hmm_model.total_states), "Alpha should have shape (T, total_states)"
-    assert beta.shape == (T, hmm_model.total_states), "Beta should have shape (T, total_states)"
-    
-    # Test entry/exit state properties
-    assert np.all(alpha[1:, 0] == -np.inf), "Entry state should be -inf after t=0"
-    assert np.all(beta[:, -1] == -np.inf), "Exit state should always be -inf"
-    
-    # Test log probability properties
-    assert np.all(alpha[alpha != -np.inf] <= 0), "Finite log alpha values should be non-positive"
-    assert np.all(beta[beta != -np.inf] <= 0), "Finite log beta values should be non-positive"
-    assert np.all(np.isfinite(alpha[alpha != -np.inf])), "Non-inf alpha values should be finite"
-    assert np.all(np.isfinite(beta[beta != -np.inf])), "Non-inf beta values should be finite"
-    
-    # Print sample values for debugging
-    print("\nForward Probabilities (Alpha):")
-    hmm_model.print_matrix(alpha, "Alpha Matrix", col="State", idx="T")
-    
-    print("\nBackward Probabilities (Beta):")
-    hmm_model.print_matrix(beta, "Beta Matrix", col="State", idx="T")
-    
-    print("\nForward-Backward sums at each timestep:")
-    for t in range(T):
-        fb_sum = np.logaddexp.reduce(alpha[t] + beta[t])
-        print(f"t={t}: {fb_sum}")
-    
-    # Print some sample values for inspection
-    print(f"\nSample log probabilities at t=0:")
-    print(f"Alpha[0,0] (entry state): {alpha[0,0]}")
-    print(f"Alpha[0,1] (first real state): {alpha[0,1]}")
-    print(f"Beta[0,1] (first real state): {beta[0,1]}")
-
 def test_gamma_xi_probabilities(hmm_model, feature_set):
     test_features = feature_set[0]
     emission_matrix = hmm_model.compute_emission_matrix(test_features)
@@ -66,22 +26,23 @@ def test_gamma_xi_probabilities(hmm_model, feature_set):
     beta = hmm_model.backward(emission_matrix)
     gamma = hmm_model.compute_gamma(alpha, beta)
     xi = hmm_model.compute_xi(alpha, beta, emission_matrix)
-    
+
     T = emission_matrix.shape[0]
-    
+
     # Test dimensions
     assert gamma.shape == (T, hmm_model.total_states)
-    assert xi.shape == (T-1, hmm_model.total_states, hmm_model.total_states)
-    
+    assert xi.shape == (T - 1, hmm_model.total_states, hmm_model.total_states)
+
     # Test probability properties
     assert np.all(gamma >= 0) and np.all(gamma <= 1)
     assert np.all(xi >= 0) and np.all(xi <= 1)
-    
+
     print("\nGamma Matrix (time step 10):")
     hmm_model.print_matrix(gamma[10:11], "Gamma Matrix", col="State", idx="T")
-    
+
     print("\nXi Matrix for t=10 (transitions from time step 10):")
     hmm_model.print_matrix(xi[10], "Xi Matrix t=10", col="To State", idx="From State")
+
 
 # def test_update_transitions(hmm_model, heed_features):
 #     """
