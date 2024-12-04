@@ -2,7 +2,6 @@ import logging
 import numpy as np
 import pickle
 import pandas as pd
-import os
 from pathlib import Path
 from custom_hmm import HMM
 from hmmlearn_hmm import HMMLearnModel

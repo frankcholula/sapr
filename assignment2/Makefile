@@ -26,6 +26,7 @@ clean:
 	@rm -rf eval_feature_set
 	@rm -rf trained_models/hmmlearn
 	@rm -rf trained_models/custom
+	@rm -rf __pycache__
 
 .PHONY: clean_training
 clean_training:

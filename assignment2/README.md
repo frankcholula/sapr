@@ -1,6 +1,28 @@
 # Speech Recognition 🎙️
 The second coursework assignment for EEEM030 Speech & Audio Processing & Recognition is designed to give you hands-on experience with machine learning methodology in a small development team. You'll practice key algorithms for feature extraction, model initialization, training, and testing. Throughout this assignment, you'll apply efficient recursive procedures to observe the effects of training using maximum likelihood. Additionally, you'll perform recognition for a simple, isolated-word recognition task, providing practical insight into speech recognition techniques.
 
+## Directory Layout 📁
+```bash
+sapr/assignment2
+├── Makefile
+├── README.md
+├── custom_hmm.py
+├── decoder.py
+├── dev_set
+├── eval.py
+├── eval_feature_set
+├── eval_set
+├── feature_set
+├── figures
+├── hmmlearn_hmm.py
+├── mfcc_extract.py
+├── poetry.lock
+├── pyproject.toml
+├── references
+├── tests
+├── train.py
+└── trained_models
+```
 ## Setup 🛠️
 Please make sure you download the `EEEM030 Development Set 2024.zip` for all the testing audio files. The zip file should unzipped in the `assignment2` directory and rename as `dev_set` for the code to work. Unlike assignment 1, I will not be committing the zip file to the repository due to its size.
 
