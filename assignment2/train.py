@@ -125,4 +125,9 @@ def train_hmm(
 
 if __name__ == "__main__":
     print("\nTraining with `hmmlearn` implementation:")
-    train_hmm("hmmlearn", num_states=8, num_features=13, n_iter=5, min_covar=0.01)
+    num_states = 8
+    num_features = 13
+    n_iter = 15
+    min_covar = 0.01
+    print(f"Number of states: {num_states} | Number of features: {num_features}" f" | Number of iterations: {n_iter} | Minimum covariance: {min_covar}")
+    train_hmm("hmmlearn", num_states, num_features, n_iter, min_covar)
