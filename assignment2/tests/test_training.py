@@ -1,47 +1,67 @@
-# import pytest
-# import numpy as np
-# from custom_hmm import HMM
-# from mfcc_extract import load_mfccs, load_mfccs_by_word
+import pytest
+import numpy as np
+from custom_hmm import HMM
+from mfcc_extract import load_mfccs, load_mfccs_by_word
 
 
-# @pytest.fixture
-# def feature_set():
-#     return load_mfccs("feature_set")
+@pytest.fixture
+def feature_set():
+    return load_mfccs("feature_set")
 
 
-# @pytest.fixture
-# def hmm_model(feature_set):
-#     return HMM(8, 13, feature_set)
+@pytest.fixture
+def hmm_model(feature_set):
+    return HMM(8, 13, feature_set)
 
 
-# @pytest.fixture
-# def heed_features():
-#     return load_mfccs_by_word("feature_set", "heed")
+@pytest.fixture
+def heed_features():
+    return load_mfccs_by_word("feature_set", "heed")
 
 
+def test_fb_probabilities(hmm_model, feature_set):
+    test_features = feature_set[0]
+    emission_matrix = hmm_model.compute_emission_matrix(test_features)
+    alpha = hmm_model.forward(emission_matrix)
+    beta = hmm_model.backward(emission_matrix)
+    
+    T = emission_matrix.shape[0]  # Time steps is first dimension now
+    
+    # Test shapes
+    assert alpha.shape == (T, hmm_model.total_states), "Alpha should have shape (T, total_states)"
+    assert beta.shape == (T, hmm_model.total_states), "Beta should have shape (T, total_states)"
+    
+    # Test entry/exit state properties
+    assert np.all(alpha[1:, 0] == -np.inf), "Entry state should be -inf after t=0"
+    assert np.all(beta[:, -1] == -np.inf), "Exit state should always be -inf"
+    
+    # Test log probability properties
+    assert np.all(alpha[alpha != -np.inf] <= 0), "Finite log alpha values should be non-positive"
+    assert np.all(beta[beta != -np.inf] <= 0), "Finite log beta values should be non-positive"
+    assert np.all(np.isfinite(alpha[alpha != -np.inf])), "Non-inf alpha values should be finite"
+    assert np.all(np.isfinite(beta[beta != -np.inf])), "Non-inf beta values should be finite"
+    
+    # Print sample values for debugging
+    print("\nForward Probabilities (Alpha):")
+    hmm_model.print_matrix(alpha, "Alpha Matrix", col="State", idx="T")
+    
+    print("\nBackward Probabilities (Beta):")
+    hmm_model.print_matrix(beta, "Beta Matrix", col="State", idx="T")
+    
+    print("\nForward-Backward sums at each timestep:")
+    for t in range(T):
+        fb_sum = np.logaddexp.reduce(alpha[t] + beta[t])
+        print(f"t={t}: {fb_sum}")
+    
+    # Print some sample values for inspection
+    print(f"\nSample log probabilities at t=0:")
+    print(f"Alpha[0,0] (entry state): {alpha[0,0]}")
+    print(f"Alpha[0,1] (first real state): {alpha[0,1]}")
+    print(f"Beta[0,1] (first real state): {beta[0,1]}")
 
-
-
-# def test_fb_probabilities(hmm_model, feature_set):
-#     emission_matrix = hmm_model.compute_log_emission_matrix(feature_set[0])
-#     alpha = hmm_model.forward(emission_matrix, use_log=True)
-#     beta = hmm_model.backward(emission_matrix, use_log=True)
-#     T = emission_matrix.shape[1]
-#     # Test 1: First observation emission * first backward probability
-#     test1 = emission_matrix[0, 0] + beta[0, 0]
-
-#     # Test 2: Last transition to exit * last forward probability
-#     test2 = np.log(hmm_model.A[-2, -1]) + alpha[-2, T - 1]
-
-#     print(f"\nTest 1: {test1}")
-#     print(f"\nTest 2: {test2}")
-#     print(f"\nDifference: {abs(test1 - test2)}")
-#     hmm_model.print_matrix(
-#         alpha, "Alpha Matrix", col="T", idx="State", start_idx=0, start_col=1
-#     )
-#     hmm_model.print_matrix(
-#         beta, "Beta Matrix", col="T", idx="State", start_idx=0, start_col=1
-#     )
+    # Test that forward and backward probabilities are being computed
+    assert not np.all(alpha == -np.inf), "All alpha values shouldn't be -inf"
+    assert not np.all(beta == -np.inf), "All beta values shouldn't be -inf"
 
 
 # def test_gamma_xi_probabilities(hmm_model, feature_set):

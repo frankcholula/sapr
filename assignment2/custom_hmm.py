@@ -140,147 +140,68 @@ class HMM:
             log_emission_matrix[j] = exponent - log_normalization
         return log_emission_matrix.T
 
-    def forward(self, emission_matrix: np.ndarray, use_log=True) -> np.ndarray:
+    def forward(self, emission_matrix: np.ndarray) -> np.ndarray:
         """
-        Compute forward probabilities α(t,j) including entry and exit states.
-
-        Args:
-            emission_matrix: Emission probabilities of shape (num_states, T)
-                            Only includes real states (not entry/exit).
-            use_log: Whether to compute probabilities in log space.
-        Returns:
-            alpha: Forward probabilities of shape (num_states + 2, T)
-                Includes entry state (0) and exit state (num_states + 1).
+        Compute forward probabilities α(t,j) in log space.
         """
-        T = emission_matrix.shape[1]  # Number of time steps
+        T = emission_matrix.shape[0]
+        alpha = np.full((T, self.total_states), -np.inf)
+        alpha[0, 0] = 0
+        alpha[0, 1] = np.log(self.A[0, 1]) + emission_matrix[0, 1]
 
-        if use_log:
-            alpha = np.full((self.num_states + 2, T), -np.inf)
+        # Forward recursion
+        for t in range(1, T):
+            alpha[t, 0] = -np.inf
 
-            # Initialize t=0
-            alpha[0, 0] = -np.inf
-            alpha[1, 0] = np.log(self.A[0, 1]) + emission_matrix[0, 0]
+            for j in range(1, self.num_states + 1):
+                from_prev = alpha[t - 1, j - 1] + np.log(self.A[j - 1, j])
+                self_loop = alpha[t - 1, j] + np.log(self.A[j, j])
+                alpha[t, j] = np.logaddexp(from_prev, self_loop) + emission_matrix[t, j]
 
-            # Forward recursion
-            for t in range(1, T):
-                alpha[0, t] = -np.inf  # Entry state always -inf after t=0
-
-                for j in range(1, self.num_states + 1):
-                    from_prev = alpha[j - 1, t - 1] + np.log(self.A[j - 1, j])
-                    self_loop = alpha[j, t - 1] + np.log(self.A[j, j])
-                    alpha[j, t] = (
-                        np.logaddexp(from_prev, self_loop) + emission_matrix[j - 1, t]
-                    )
-
-                # Exit state (num_states + 1) - can only come from last real state
-                alpha[-1, t] = alpha[-2, t - 1] + np.log(self.A[-2, -1])
-
-        else:
-            alpha = np.zeros((self.num_states + 2, T))
-
-            # Initialize t=0
-            alpha[0, 0] = 0
-            alpha[1, 0] = self.A[0, 1] * emission_matrix[0, 0]
-
-            # Forward recursion
-            for t in range(1, T):
-                alpha[0, t] = 0  # Entry state always 0 after t=0
-
-                for j in range(1, self.num_states + 1):
-                    from_prev = alpha[j - 1, t - 1] * self.A[j - 1, j]
-                    self_loop = alpha[j, t - 1] * self.A[j, j]
-                    alpha[j, t] = (from_prev + self_loop) * emission_matrix[j - 1, t]
-
-                # Exit state (num_states + 1) - can only come from last real state
+            alpha[t, -1] = alpha[t - 1, -2] + np.log(self.A[-2, -1])
 
         return alpha
 
-    def backward(self, emission_matrix: np.ndarray, use_log=True) -> np.ndarray:
-        """
-        Compute backward probabilities β(t,j) including entry and exit states.
+    def backward(self, emission_matrix: np.ndarray) -> np.ndarray:
+        T = emission_matrix.shape[0]
+        beta = np.full((T, self.total_states), -np.inf)
+        # Initialize state probabilities at time T
+        for j in range(self.total_states - 1):
+            if self.A[j, -1] > 0:
+                beta[T - 1, j] = np.log(self.A[j, -1])
+        beta[T - 1, -1] = -np.inf
 
-        Args:
-            emission_matrix: Emission probabilities of shape (num_states, T)
-                            Only includes real states (not entry/exit).
-            use_log: Whether to compute probabilities in log space.
-        Returns:
-            beta: Backward probabilities of shape (num_states + 2, T)
-                Includes entry state (0) and exit state (num_states + 1).
-        """
-        T = emission_matrix.shape[1]  # Number of time steps
+        for t in range(T - 2, -1, -1):
+            beta[t, -1] = -np.inf
 
-        if use_log:
-            beta = np.full((self.num_states + 2, T), -np.inf)
-
-            # Initialize t=T-1
-            for j in range(self.num_states + 1):  # states 0 to 8
-                if self.A[j, -1] == 0:
-                    beta[j, T - 1] = -np.inf  # -inf if no transition to exit state
+            for j in range(self.total_states - 1):
+                if j == self.num_states:
+                    if self.A[j, j] > 0:
+                        beta[t, j] = (
+                            beta[t + 1, j]
+                            + np.log(self.A[j, j])
+                            + emission_matrix[t + 1, j]
+                        )
                 else:
-                    beta[j, T - 1] = np.log(self.A[j, -1])
-            beta[-1, T - 1] = -np.inf  # Exit state stays at -inf
-
-            # Backward recursion
-            for t in range(T - 2, -1, -1):  # Go from T-2 down to 0
-                beta[-1, t] = -np.inf  # Exit state stays at -inf
-                for j in range(self.num_states + 1):
-                    if j == self.num_states:  # State 8
-                        if self.A[j, j] == 0:
-                            beta[j, t] = -np.inf  # -inf if no self-loop
-                        else:
-                            beta[j, t] = (
-                                beta[j, t + 1]
-                                + np.log(self.A[j, j])
-                                + emission_matrix[j - 1, t + 1]
-                            )
-                    else:
-                        if self.A[j, j] == 0:
-                            self_loop = -np.inf
-                        else:
-                            self_loop = (
-                                beta[j, t + 1]
-                                + np.log(self.A[j, j])
-                                + emission_matrix[j, t + 1]
-                            )
-                        if self.A[j, j + 1] == 0:
-                            to_next = -np.inf
-                        else:
-                            to_next = (
-                                beta[j + 1, t + 1]
-                                + np.log(self.A[j, j + 1])
-                                + emission_matrix[j, t + 1]
-                            )
-                        beta[j, t] = np.logaddexp(self_loop, to_next)
-
-        else:
-            beta = np.zeros((self.num_states + 2, T))
-
-            # Initialize t=T-1
-            for j in range(self.num_states + 1):  # states 0 to 8
-                beta[j, T - 1] = self.A[j, -1]
-            beta[-1, T - 1] = 0  # Exit state stays at 0
-
-            # Backward recursion
-            for t in range(T - 2, -1, -1):  # Go from T-2 down to 0
-                beta[-1, t] = 0  # Exit state stays at 0
-                for j in range(self.num_states + 1):
-                    if j == self.num_states:  # State 8
-                        beta[j, t] = (
-                            beta[j, t + 1]
-                            * self.A[j, j]
-                            * emission_matrix[j - 1, t + 1]
-                        )
-                    else:
+                    if self.A[j, j] > 0:
                         self_loop = (
-                            beta[j, t + 1] * self.A[j, j] * emission_matrix[j, t + 1]
+                            beta[t + 1, j]
+                            + np.log(self.A[j, j])
+                            + emission_matrix[t + 1, j]
                         )
-                        to_next = (
-                            beta[j + 1, t + 1]
-                            * self.A[j, j + 1]
-                            * emission_matrix[j, t + 1]
-                        )
-                        beta[j, t] = self_loop + to_next
+                    else:
+                        self_loop = -np.inf
 
+                    if self.A[j, j + 1] > 0:
+                        to_next = (
+                            beta[t + 1, j + 1]
+                            + np.log(self.A[j, j + 1])
+                            + emission_matrix[t + 1, j]
+                        )
+                    else:
+                        to_next = -np.inf
+
+                    beta[t, j] = np.logaddexp(self_loop, to_next)
         return beta
 
     def compute_gamma(
