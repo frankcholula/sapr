@@ -12,7 +12,7 @@ class HMM:
         num_obs: int,
         feature_set: list[np.ndarray] = None,
         model_name: str = None,
-        var_floor_factor: float = 0.01,
+        var_floor_factor: float = 0.001,
     ):
         assert num_states > 0, "Number of states must be greater than 0."
         assert num_obs > 0, "Number of observations must be greater than 0."
@@ -307,28 +307,17 @@ class HMM:
         else:
             logging.warning("Method only supports 2D matrices.")
 
-    def update_A(self, aggregated_xi: np.ndarray, aggregated_gamma: np.ndarray) -> None:
+    def update_A(self, aggregated_xi, aggregated_gamma) -> None:
         """
         Update transition probability matrix A using accumulated statistics.
         """
-        # Entry state always transitions to first state with probability 1
         self.A[0, 1] = 1.0
 
         # Update transitions for real states
         for i in range(1, self.total_states - 1):
-            # Normalize by total transitions from state i
             if aggregated_gamma[i] > 0:
-                # Self-transition probability
                 self.A[i, i] = aggregated_xi[i, i] / aggregated_gamma[i]
-
-                # Forward transition probability (if not last state)
-                if i < self.total_states - 2:
-                    self.A[i, i + 1] = aggregated_xi[i, i + 1] / aggregated_gamma[i]
-
-        # Last real state to exit state
-        if aggregated_gamma[-2] > 0:
-            # What remains after self-transition
-            self.A[-2, -1] = 1.0 - self.A[-2, -2]
+                self.A[i, i + 1] = 1.0 - self.A[i, i]
 
         # Exit state always self-loops
         self.A[-1, -1] = 1.0
@@ -374,7 +363,9 @@ class HMM:
         self.B["mean"] = state_means
         self.B["covariance"] = state_vars
 
-    def baum_welch(self, features_list: list[np.ndarray], max_iter: int = 30, tol: float = 1e-4):
+    def baum_welch(
+        self, features_list: list[np.ndarray], max_iter: int = 15, tol: float = 1e-4
+    ):
         """
         Train the HMM using the Baum-Welch algorithm on multiple sequences.
         Returns the log likelihood values for each iteration to monitor convergence.
@@ -399,22 +390,24 @@ class HMM:
                 beta = self.backward(emission_matrix)
                 gamma = self.compute_gamma(alpha, beta)
                 xi = self.compute_xi(alpha, beta, emission_matrix)
-                
+
                 # Store gamma for B updates
                 gamma_per_seq.append(gamma)
-                
+
                 # Accumulate statistics for A updates
                 aggregated_gamma += np.sum(gamma[:-1], axis=0)  # Sum over time
                 aggregated_xi += np.sum(xi, axis=0)  # Sum over time
-                
+
                 # Compute sequence log-likelihood
                 seq_log_likelihood = np.logaddexp.reduce(alpha[-1])
                 total_log_likelihood += seq_log_likelihood
 
             # Store log likelihood
             log_likelihood_history.append(total_log_likelihood)
-            
-            print(f"Iteration {iteration + 1}, Log-Likelihood: {total_log_likelihood:.2f}")
+
+            print(
+                f"Iteration {iteration + 1}, Log-Likelihood: {total_log_likelihood:.2f}"
+            )
 
             # Check convergence
             if abs(total_log_likelihood - prev_log_likelihood) < tol:

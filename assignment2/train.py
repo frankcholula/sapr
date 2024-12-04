@@ -83,6 +83,7 @@ def train_hmm(
     num_states: int = 8,
     num_features: int = 13,
     n_iter: int = 15,
+    min_covar: float = 0.01,
 ) -> Dict[str, Union[HMM, HMMLearnModel]]:
     vocabs = [
         "heed", "hid", "head", "had", "hard", "hud", 
@@ -110,7 +111,7 @@ def train_hmm(
             log_likelihoods = hmm.baum_welch(features[word], n_iter)
             trained_model = hmm
         elif implementation == "hmmlearn":
-            hmm = HMMLearnModel(num_states=num_states, model_name=word, n_iter=n_iter)
+            hmm = HMMLearnModel(num_states=num_states, model_name=word, n_iter=n_iter, min_covar=min_covar)
             trained_model, _ = hmm.fit(features[word])
             log_likelihoods = hmm.model.monitor_.history
 
@@ -124,4 +125,9 @@ def train_hmm(
 
 if __name__ == "__main__":
     print("\nTraining with `hmmlearn` implementation:")
-    train_hmm("hmmlearn", num_states=8, num_features=13, n_iter=7)
+    num_states = 8
+    num_features = 13
+    n_iter = 15
+    min_covar = 0.01
+    print(f"Number of states: {num_states} | Number of features: {num_features}" f" | Number of iterations: {n_iter} | Minimum covariance: {min_covar}")
+    train_hmm("hmmlearn", num_states, num_features, n_iter, min_covar)
