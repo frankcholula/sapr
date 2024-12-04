@@ -103,7 +103,7 @@ class HMM:
         print(f"\nM (observation dim): {self.num_obs}")
         print(f"\nπ (initial state distribution): {self.pi.round(3)}")
         print("\nA (transition matrix):")
-        self.print_transition_matrix()
+        self.print_matrix(self.A, "Transition Matrix", col="To", idx="From")
         print("\nB (emission parameters):")
         self.print_emission_parameters()
 
@@ -422,3 +422,73 @@ class HMM:
 
         print("Training complete!")
         return log_likelihood_history
+
+
+def test_viterbi_matrix(hmm_model, heed_features):
+    """Test to visualize the Viterbi matrix for a sample sequence."""
+    # Take first test sequence and compute emission matrix
+    test_features = heed_features[0]
+    T = test_features.shape[1]
+    emission_matrix = hmm_model.compute_emission_matrix(test_features)
+    
+    # Initialize Viterbi matrix and backpointer matrix
+    V = np.full((T, hmm_model.total_states), -np.inf)
+    backpointer = np.zeros((T, hmm_model.total_states), dtype=int)
+    
+    # Initialize first time step (t=0)
+    V[0, 0] = 0  # Start in entry state
+    V[0, 1] = np.log(hmm_model.A[0, 1]) + emission_matrix[0, 1]  # Transition to first state
+    
+    # Forward recursion
+    for t in range(1, T):
+        # Handle entry state (always -inf after t=0)
+        V[t, 0] = -np.inf
+        
+        # Handle real states (1 to num_states)
+        for j in range(1, hmm_model.num_states + 1):
+            # Calculate probabilities for each possible previous state
+            from_prev = -np.inf
+            self_loop = -np.inf
+            
+            # Self-loop probability if not in first frame
+            if hmm_model.A[j, j] > 0:
+                self_loop = V[t-1, j] + np.log(hmm_model.A[j, j])
+            
+            # From previous state probability
+            if j > 1 and hmm_model.A[j-1, j] > 0:
+                from_prev = V[t-1, j-1] + np.log(hmm_model.A[j-1, j])
+            elif j == 1 and t == 1:  # Special case for first real state
+                from_prev = V[0, 0] + np.log(hmm_model.A[0, 1])
+            
+            # Take maximum of possible previous paths
+            V[t, j] = np.logaddexp(from_prev, self_loop) + emission_matrix[t, j]
+            backpointer[t, j] = j-1 if from_prev > self_loop else j
+        
+        # Handle exit state
+        if t > hmm_model.num_states:  # Allow exit after going through enough states
+            from_last = V[t-1, hmm_model.num_states] + np.log(hmm_model.A[hmm_model.num_states, -1])
+            self_loop = V[t-1, -1] + np.log(hmm_model.A[-1, -1])
+            V[t, -1] = np.logaddexp(from_last, self_loop)
+            backpointer[t, -1] = hmm_model.num_states if from_last > self_loop else hmm_model.total_states - 1
+    
+    # Print matrices
+    print("\nViterbi Matrix (showing first 10 frames, log probabilities):")
+    print("Time\t" + "\t".join([f"S{i}" if i != 0 and i != hmm_model.total_states-1 
+                            else ("Entry" if i == 0 else "Exit") 
+                            for i in range(hmm_model.total_states)]))
+    
+    for t in range(min(10, T)):
+        print(f"t={t}\t" + "\t".join(f"{V[t,j]:.1f}" if V[t,j] != -np.inf else "-inf" 
+                                    for j in range(hmm_model.total_states)))
+    
+    # Print best path
+    best_path = []
+    current_state = hmm_model.total_states - 1  # Start from exit state
+    for t in range(T-1, -1, -1):
+        best_path.append(current_state)
+        current_state = backpointer[t, current_state]
+    best_path = best_path[::-1]
+    
+    print("\nBest path:")
+    print([f"S{s}" if s != 0 and s != hmm_model.total_states-1 
+        else ("Entry" if s == 0 else "Exit") for s in best_path[:20]])
