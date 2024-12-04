@@ -14,6 +14,7 @@ class HMMLearnModel:
         num_states: int = 8,
         model_name: str = None,
         n_iter: int = 15,
+        min_covar: float = 0.01,
     ):
         self.model_name = model_name
         self.num_states = num_states
@@ -29,7 +30,7 @@ class HMMLearnModel:
             n_iter=n_iter,
             params="stmc",
             implementation="log",
-            min_covar=0.01,
+            min_covar=min_covar,
             init_params="",
             # verbose=True,
         )
