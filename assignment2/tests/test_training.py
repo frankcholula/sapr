@@ -19,35 +19,7 @@
 #     return load_mfccs_by_word("feature_set", "heed")
 
 
-# def test_global_mean(hmm_model, feature_set):
-#     assert hmm_model.mean.shape == (13,)
-#     assert np.allclose(
-#         hmm_model.mean, np.mean(np.concatenate(feature_set, axis=1), axis=1)
-#     ), "Global mean should be the mean of all features"
-#     print(f"\nGlobal Mean:\n{hmm_model.mean}")
 
-
-# def test_emission_matrix(hmm_model, feature_set):
-#     test_features = feature_set[0]
-#     B_probs = hmm_model.compute_log_emission_matrix(test_features)
-
-#     # Test shape
-#     assert B_probs.shape == (8, test_features.shape[1])
-
-#     # Test basic properties
-#     assert np.all(B_probs <= 0), "Log probabilities should be non-positive"
-#     assert np.all(
-#         np.isfinite(B_probs[B_probs != -np.inf])
-#     ), "Log probabilities should be finite where not -inf"
-
-#     # Since we initialized with global means, first frame probabilities should be similar
-#     first_frame_probs = B_probs[:, 0]
-#     print(f"\nFirst Frame Log Probabilities:\n{first_frame_probs}")
-#     prob_std = np.std(first_frame_probs)
-#     assert prob_std < 1e-10, "Initial log probabilities should be similar across states"
-#     hmm_model.print_matrix(
-#         B_probs, "Emission Matrix", col="T", idx="State", start_idx=1, start_col=1
-#     )
 
 
 # def test_fb_probabilities(hmm_model, feature_set):

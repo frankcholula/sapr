@@ -68,3 +68,10 @@ def test_hmm_initialization(hmm_model):
     compare_model = HMMLearnModel(8, "test")
     pretty_print_matrix(hmm_model.A)
     pretty_print_matrix(compare_model.initialize_transmat())
+
+def test_global_mean(hmm_model, feature_set):
+    assert hmm_model.global_mean.shape == (13,)
+    assert np.allclose(
+        hmm_model.global_mean, np.mean(np.concatenate(feature_set, axis=1), axis=1)
+    ), "Global mean should be the mean of all features"
+    print(f"\nGlobal Mean:\n{hmm_model.global_mean}")

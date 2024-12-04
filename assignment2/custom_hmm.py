@@ -32,7 +32,6 @@ class HMM:
             self.init_parameters(feature_set)
 
     def init_parameters(self, feature_set: list[np.ndarray]) -> None:
-        # Rename to global_mean and global_variance
         self.global_mean = self.calculate_means(feature_set)
         self.global_variance = self.calculate_variance(feature_set, self.global_mean)
 
@@ -102,17 +101,13 @@ class HMM:
         print("HMM Parameters:")
         print(f"\nN (states): {self.num_states}")
         print(f"\nM (observation dim): {self.num_obs}")
-
         print(f"\nπ (initial state distribution): {self.pi.round(3)}")
-
         print("\nA (transition matrix):")
         self.print_transition_matrix()
-
         print("\nB (emission parameters):")
         self.print_emission_parameters()
 
     def print_emission_parameters(self, precision: int = 3) -> None:
-        # Print means
         print("\nMeans (each column is a state, each row is an MFCC coefficient):")
         means_df = pd.DataFrame(
             self.B["mean"],
@@ -131,24 +126,19 @@ class HMM:
         print(cov_df.round(precision))
 
     def compute_emission_matrix(self, features: np.ndarray) -> np.ndarray:
-        """
-        Compute the emission matrix B using a 13-dimensional multivariate Gaussian.
-        """
         T = features.shape[1]
-        emission_matrix = np.zeros((self.num_states, T))
+        log_emission_matrix = np.full((self.total_states, T), -np.inf)
 
-        for j in range(self.num_states):
-            diff = features - self.B["mean"][:, j : j + 1]
-            mahalanobis_squared = diff**2 / self.B["covariance"][:, j : j + 1]
+        for j in range(1, self.total_states - 1):
+            diff = features - self.B["mean"][j, :, np.newaxis]
+            mahalanobis_squared = diff**2 / self.B["covariance"][j, :, np.newaxis]
             exponent = -0.5 * np.sum(mahalanobis_squared, axis=0)
-            determinant = np.prod(self.B["covariance"][:, j])
-            normalization = np.sqrt((2 * np.pi) ** self.num_obs * determinant)
-            emission_matrix[j] = np.exp(exponent) / normalization
-        return emission_matrix
-
-    def compute_log_emission_matrix(self, features: np.ndarray) -> np.ndarray:
-        emission_matrix = self.compute_emission_matrix(features)
-        return np.log(emission_matrix)
+            log_determinant = np.sum(np.log(self.B["covariance"][j]))
+            log_normalization = 0.5 * (
+                self.num_obs * np.log(2 * np.pi) + log_determinant
+            )
+            log_emission_matrix[j] = exponent - log_normalization
+        return log_emission_matrix.T
 
     def forward(self, emission_matrix: np.ndarray, use_log=True) -> np.ndarray:
         """
