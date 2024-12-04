@@ -2,7 +2,6 @@ import pytest
 import numpy as np
 from custom_hmm import HMM
 from mfcc_extract import load_mfccs, load_mfccs_by_word
-import pandas as pd
 
 
 @pytest.fixture
