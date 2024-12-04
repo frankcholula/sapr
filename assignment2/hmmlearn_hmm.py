@@ -106,9 +106,3 @@ class HMMLearnModel:
             return self.model, log_likelihood
         except Exception as e:
             logging.error(f"Error occurred while training {self.model_name} HMM: {e}")
-
-
-if __name__ == "__main__":
-    myhmm = HMMLearnModel(8, model_name="heed")
-    myhmm.fit(load_mfccs_by_word("feature_set", "heed"))
-    myhmm.plot_training_progress(myhmm.model.monitor_.history)
