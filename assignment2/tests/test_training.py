@@ -241,9 +241,9 @@ def test_gamma_xi_probabilities(hmm_model, feature_set):
 #     print(f"After:  [{np.min(hmm_model.B['covariance']):.3f}, {np.max(hmm_model.B['covariance']):.3f}]")
 
 
-# def test_baum_welch(hmm_model, heed_features):
-#     """
-#     Test the full Baum-Welch algorithm using the 'heed' sequences.
-#     Verifies that the model parameters converge to a stable state.
-#     """
-#     hmm_model.baum_welch(heed_features)
+def test_baum_welch(hmm_model, heed_features):
+    """
+    Test the full Baum-Welch algorithm using the 'heed' sequences.
+    Verifies that the model parameters converge to a stable state.
+    """
+    hmm_model.baum_welch(heed_features)
