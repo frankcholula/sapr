@@ -122,10 +122,7 @@ def test_update_emissions(hmm_model, heed_features):
     initial_covars = hmm_model.B["covariance"].copy()
 
     # Print initial parameters
-    print("\nInitial means:")
     hmm_model.print_matrix(initial_means, "Initial Means", col="MFCC", idx="State")
-
-    print("\nInitial covariances:")
     hmm_model.print_matrix(
         initial_covars, "Initial Covariances", col="MFCC", idx="State"
     )
@@ -143,12 +140,9 @@ def test_update_emissions(hmm_model, heed_features):
     hmm_model.update_B(heed_features, gamma_per_seq)
 
     # Print updated parameters
-    print("\nUpdated means:")
     hmm_model.print_matrix(
         hmm_model.B["mean"], "Updated Means", col="MFCC", idx="State"
     )
-
-    print("\nUpdated covariances:")
     hmm_model.print_matrix(
         hmm_model.B["covariance"], "Updated Covariances", col="MFCC", idx="State"
     )
