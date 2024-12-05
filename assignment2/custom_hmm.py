@@ -76,18 +76,6 @@ class HMM:
         mean = sum / count
         return mean
 
-    def calculate_variance(
-        self, feature_set: list[np.ndarray], mean: np.ndarray
-    ) -> np.ndarray:
-        """Calculate variance of MFCC features across all frames"""
-        ssd = np.zeros(self.num_obs)
-        count = 0
-        for feature in feature_set:
-            ssd += np.sum((feature - mean[:, np.newaxis]) ** 2, axis=1)
-            count += feature.shape[1]
-        variance = ssd / count
-        return variance
-
     def calculate_covariance(
         self, feature_set: list[np.ndarray], mean: np.ndarray
     ) -> np.ndarray:
