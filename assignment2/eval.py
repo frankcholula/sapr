@@ -191,32 +191,34 @@ def decode_vocabulary(models: Dict, vocab: List[str], feature_set: str = "featur
     return all_results
 
 
-def plot_accuracy_per_class(epoch: int, word_accuracies: Dict[str, float], figures_dir: str = "figures") -> None:
+def plot_error_rate_all_classes_over_epochs(class_error_rates: Dict[str, List[float]], feature_set: str, figures_dir: str = "figures") -> None:
     """
-    Plot and save accuracy per class (word) for a given epoch.
+    Plot and save error rate for all classes (words) over epochs in a single figure.
     """
     figures_path = Path(figures_dir)
     figures_path.mkdir(exist_ok=True)
 
-    words = list(word_accuracies.keys())
-    accuracies = list(word_accuracies.values())
+    plt.figure(figsize=(12, 8))
 
-    plt.figure(figsize=(10, 6))
-    plt.bar(words, accuracies)
-    plt.xlabel("Words")
-    plt.ylabel("Accuracy")
-    plt.title(f"Accuracy per Class for Epoch {epoch}")
-    plt.xticks(rotation=45, ha="right")
+    for word, error_rates in class_error_rates.items():
+        epochs = range(len(error_rates))
+        plt.plot(epochs, error_rates, marker='o', label=word)
+
+    plt.xlabel("Epoch")
+    plt.ylabel("Error Rate")
+    plt.title(f"Error Rate Over Epochs for Feature Set: {feature_set}")
+    plt.legend(loc='upper right')
+    plt.grid(True)
     plt.tight_layout()
-    plt.savefig(figures_path / f"epoch_{epoch}_accuracy.png")
+    plt.savefig(figures_path / f"{feature_set}_error_rate_over_epochs.png")
     plt.close()
 
 
-def eval_hmm_every_epoch(models_dir: str, implementation: str, n_iter: int, feature_set: str = "feature_set") -> None:
+def eval_hmm_every_epoch(models_dir: str, implementation: str, n_iter: int, feature_set: str = "feature_set", figures_dir: str = "figures") -> None:
     """
-    Evaluate models for all epochs and log accuracy.
+    Evaluate models for all epochs, log error rate, and save a single error rate plot for all classes over epochs.
     """
-    epoch_results = []
+    class_error_rates = {}
 
     for epoch in range(n_iter):
         try:
@@ -228,17 +230,24 @@ def eval_hmm_every_epoch(models_dir: str, implementation: str, n_iter: int, feat
         logging.info(f"Evaluating models from epoch {epoch}...")
         results = decode_vocabulary(models, vocab, feature_set)
 
-        # Calculate and log accuracy
-        all_predictions = [result["correct"] for word_results in results.values() for result in word_results]
-        accuracy = sum(all_predictions) / len(all_predictions) if all_predictions else 0
-        epoch_results.append((epoch, accuracy))
-        logging.info(f"Epoch {epoch} Accuracy: {accuracy:.2%}")
+        # Calculate error rate per word
+        for word in vocab:
+            word_results = results[word]
+            correct = sum(r["correct"] for r in word_results)
+            total = len(word_results)
+            error_rate = 1 - (correct / total if total > 0 else 0)
+
+            if word not in class_error_rates:
+                class_error_rates[word] = []
+            class_error_rates[word].append(error_rate)
+
+    # Plot error rate for all classes over epochs
+    plot_error_rate_all_classes_over_epochs(class_error_rates, feature_set, figures_dir)
 
     # Print summary of results
     print("\nEpoch Evaluation Summary:")
-    for epoch, acc in epoch_results:
-        print(f"Epoch {epoch}: Accuracy = {acc:.2%}")
-
+    for word, error_rates in class_error_rates.items():
+        print(f"{word}: Error Rates = {error_rates}")
 
 
 if __name__ == "__main__":
