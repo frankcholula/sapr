@@ -34,21 +34,38 @@ class HMM:
 
     def init_parameters(self, feature_set: list[np.ndarray]) -> None:
         self.global_mean = self.calculate_means(feature_set)
-        self.global_variance = self.calculate_variance(feature_set, self.global_mean)
 
-        var_floor = self.var_floor_factor * np.mean(self.global_variance)
-        self.global_variance = np.maximum(self.global_variance, var_floor)
+        # Calculate full covariance then zero out off-diagonal elements
+        self.global_covariance = self.calculate_covariance(
+            feature_set, self.global_mean
+        )
+        self.global_covariance *= np.eye(self.num_obs)  # Zero out off-diagonal elements
+
+        # Apply variance floor to diagonal
+        var_floor = self.var_floor_factor * np.mean(np.diag(self.global_covariance))
+        np.fill_diagonal(
+            self.global_covariance,
+            np.maximum(np.diag(self.global_covariance), var_floor),
+        )
 
         self.A = self.initialize_transitions(feature_set, self.num_states)
 
         # Initialize B using global statistics
         means = np.tile(self.global_mean, (self.total_states, 1))
-        covars = np.tile(self.global_variance, (self.total_states, 1))
+
+        # Initialize covariance matrices for each state
+        covars = np.zeros((self.total_states, self.num_obs, self.num_obs))
+        for i in range(self.total_states):
+            covars[i] = self.global_covariance.copy()
 
         self.B = {"mean": means, "covariance": covars}
 
         assert self.B["mean"].shape == (self.total_states, self.num_obs)
-        assert self.B["covariance"].shape == (self.total_states, self.num_obs)
+        assert self.B["covariance"].shape == (
+            self.total_states,
+            self.num_obs,
+            self.num_obs,
+        )
 
     def calculate_means(self, feature_set: list[np.ndarray]) -> np.ndarray:
         """
@@ -62,17 +79,17 @@ class HMM:
         mean = sum / count
         return mean
 
-    def calculate_variance(
+    def calculate_covariance(
         self, feature_set: list[np.ndarray], mean: np.ndarray
     ) -> np.ndarray:
-        """Calculate variance of MFCC features across all frames"""
-        ssd = np.zeros(self.num_obs)
+        """Calculate full covariance matrix of MFCC features across all frames"""
+        covariance = np.zeros((self.num_obs, self.num_obs))
         count = 0
         for feature in feature_set:
-            ssd += np.sum((feature - mean[:, np.newaxis]) ** 2, axis=1)
+            centered = feature - mean[:, np.newaxis]
+            covariance += centered @ centered.T
             count += feature.shape[1]
-        variance = ssd / count
-        return variance
+        return covariance / count
 
     def initialize_transitions(
         self, feature_set: list[np.ndarray], num_states: int
@@ -127,83 +144,117 @@ class HMM:
         print(cov_df.round(precision))
 
     def compute_emission_matrix(self, features: np.ndarray) -> np.ndarray:
+        """
+        Compute log emission probabilities for each state and time.
+        Returns a TxN matrix where T is number of frames and N is number of states.
+        """
         T = features.shape[1]
-        log_emission_matrix = np.full((self.total_states, T), -np.inf)
+        log_emission_matrix = np.full((T, self.total_states), -np.inf)
 
+        # Skip entry (0) and exit (-1) states as they're non-emitting
         for j in range(1, self.total_states - 1):
             diff = features - self.B["mean"][j, :, np.newaxis]
-            mahalanobis_squared = diff**2 / self.B["covariance"][j, :, np.newaxis]
-            exponent = -0.5 * np.sum(mahalanobis_squared, axis=0)
-            log_determinant = np.sum(np.log(self.B["covariance"][j]))
-            log_normalization = 0.5 * (
-                self.num_obs * np.log(2 * np.pi) + log_determinant
-            )
-            log_emission_matrix[j] = exponent - log_normalization
-        return log_emission_matrix.T
+            try:
+                # Handle full covariance calculation
+                inv_cov = np.linalg.inv(self.B["covariance"][j])
+                sign, logdet = np.linalg.slogdet(self.B["covariance"][j])
+                assert (
+                    sign > 0
+                ), f"Non-positive definite covariance matrix for state {j}"
+
+                # Compute for all time steps at once using matrix operations
+                log_emission_matrix[:, j] = -0.5 * (
+                    self.num_obs * np.log(2 * np.pi)
+                    + logdet
+                    + np.sum(diff.T @ inv_cov @ diff, axis=1)
+                )
+            except np.linalg.LinAlgError:
+                logging.warning(
+                    f"Singular covariance matrix for state {j}, using diagonal approximation"
+                )
+                diag_cov = np.diag(np.diag(self.B["covariance"][j]))
+                log_emission_matrix[:, j] = -0.5 * np.sum(
+                    diff**2 / np.diag(diag_cov)[:, np.newaxis]
+                    + np.log(2 * np.pi * np.diag(diag_cov))[:, np.newaxis],
+                    axis=0,
+                )
+
+        return log_emission_matrix
 
     def forward(self, emission_matrix: np.ndarray) -> np.ndarray:
         """
-        Compute forward probabilities α(t,j) in log space.
+        Compute forward probabilities using the log-space forward algorithm.
+        Returns TxN matrix of log forward probabilities.
         """
         T = emission_matrix.shape[0]
         alpha = np.full((T, self.total_states), -np.inf)
-        alpha[0, 0] = 0
-        alpha[0, 1] = np.log(self.A[0, 1]) + emission_matrix[0, 1]
+
+        # Initialize
+        alpha[0, 0] = 0  # Start in entry state with probability 1
+        alpha[0, 1] = np.log(self.A[0, 1]) + emission_matrix[0, 1]  # First real state
 
         # Forward recursion
         for t in range(1, T):
-            alpha[t, 0] = -np.inf
+            for j in range(1, self.total_states):
+                # Possible previous states
+                prev_states = []
+                if j == 1:  # First real state
+                    prev_states = [0, 1]  # Can come from entry or self
+                elif j == self.total_states - 1:  # Exit state
+                    prev_states = [j - 1, j]  # Can come from last real state or self
+                else:  # Other real states
+                    prev_states = [j - 1, j]  # Can come from previous state or self
 
-            for j in range(1, self.num_states + 1):
-                from_prev = alpha[t - 1, j - 1] + np.log(self.A[j - 1, j])
-                self_loop = alpha[t - 1, j] + np.log(self.A[j, j])
-                alpha[t, j] = np.logaddexp(from_prev, self_loop) + emission_matrix[t, j]
+                # Compute log sum of incoming transitions
+                log_sum = -np.inf
+                for i in prev_states:
+                    log_sum = np.logaddexp(
+                        log_sum, alpha[t - 1, i] + np.log(self.A[i, j])
+                    )
 
-            if self.A[-2, -1] > 0:  # Only if transition is allowed
-                alpha[t, -1] = alpha[t - 1, -2] + np.log(self.A[-2, -1] + 1e-300)
+                # Add emission probability if not in entry/exit state
+                if j not in [0, self.total_states - 1]:
+                    alpha[t, j] = log_sum + emission_matrix[t, j]
+                else:
+                    alpha[t, j] = log_sum
 
         return alpha
 
     def backward(self, emission_matrix: np.ndarray) -> np.ndarray:
+        """
+        Compute backward probabilities using the log-space backward algorithm.
+        Returns TxN matrix of log backward probabilities.
+        """
         T = emission_matrix.shape[0]
         beta = np.full((T, self.total_states), -np.inf)
-        # Initialize state probabilities at time T
+
+        # Initialize final time step
         for j in range(self.total_states - 1):
-            if self.A[j, -1] > 0:
+            if self.A[j, -1] > 0:  # If can transition to exit state
                 beta[T - 1, j] = np.log(self.A[j, -1])
-        beta[T - 1, -1] = -np.inf
+        beta[T - 1, -1] = 0  # Exit state
 
+        # Backward recursion
         for t in range(T - 2, -1, -1):
-            beta[t, -1] = -np.inf
+            for i in range(self.total_states - 1):  # All states except exit
+                if i == 0:  # Entry state
+                    next_states = [1]  # Can only go to first real state
+                else:  # Real states
+                    next_states = [i, i + 1]  # Can self-loop or go to next state
 
-            for j in range(self.total_states - 1):
-                if j == self.num_states:
-                    if self.A[j, j] > 0:
-                        beta[t, j] = (
-                            beta[t + 1, j]
-                            + np.log(self.A[j, j])
-                            + emission_matrix[t + 1, j]
+                # Compute log sum of outgoing transitions
+                log_sum = -np.inf
+                for j in next_states:
+                    log_trans = np.log(self.A[i, j])
+                    if j != self.total_states - 1:  # If not transitioning to exit
+                        log_sum = np.logaddexp(
+                            log_sum,
+                            log_trans + emission_matrix[t + 1, j] + beta[t + 1, j],
                         )
-                else:
-                    if self.A[j, j] > 0:
-                        self_loop = (
-                            beta[t + 1, j]
-                            + np.log(self.A[j, j])
-                            + emission_matrix[t + 1, j]
-                        )
-                    else:
-                        self_loop = -np.inf
+                    else:  # Transition to exit doesn't include emission
+                        log_sum = np.logaddexp(log_sum, log_trans + beta[t + 1, j])
+                beta[t, i] = log_sum
 
-                    if self.A[j, j + 1] > 0:
-                        to_next = (
-                            beta[t + 1, j + 1]
-                            + np.log(self.A[j, j + 1])
-                            + emission_matrix[t + 1, j]
-                        )
-                    else:
-                        to_next = -np.inf
-
-                    beta[t, j] = np.logaddexp(self_loop, to_next)
         return beta
 
     def compute_gamma(self, alpha: np.ndarray, beta: np.ndarray) -> np.ndarray:
@@ -431,13 +482,13 @@ class HMM:
         """
         T = features.shape[0]
         emission_matrix = self.compute_emission_matrix(features)
-        
+
         V = np.full((T, self.total_states), -np.inf)
         backpointer = np.zeros((T, self.total_states), dtype=int)
-        
+
         V[0, 0] = 0
         V[0, 1] = np.log(self.A[0, 1]) + emission_matrix[0, 1]
-        
+
         for t in range(1, T):
             for j in range(1, self.total_states):
                 if j == 1:
@@ -446,35 +497,35 @@ class HMM:
                         prev_states.append(0)
                 elif j == self.total_states - 1:
                     if t >= self.num_states:
-                        prev_states = [j-1, j]
+                        prev_states = [j - 1, j]
                     else:
                         continue
                 else:
-                    prev_states = [j-1, j]
-                
+                    prev_states = [j - 1, j]
+
                 best_score = -np.inf
                 best_prev = None
-                
+
                 for i in prev_states:
-                    score = V[t-1, i] + np.log(self.A[i, j])
+                    score = V[t - 1, i] + np.log(self.A[i, j])
                     if score > best_score:
                         best_score = score
                         best_prev = i
-                
+
                 if best_prev is not None:
                     if j != 0 and j != self.total_states - 1:
                         V[t, j] = best_score + emission_matrix[t, j]
                     else:
                         V[t, j] = best_score
                     backpointer[t, j] = best_prev
-        
+
         path = []
         curr_state = self.total_states - 1
-        
-        for t in range(T-1, -1, -1):
+
+        for t in range(T - 1, -1, -1):
             path.append(curr_state)
             curr_state = backpointer[t, curr_state]
-        
+
         path.reverse()
-        
-        return float(V[T-1, -1]), path
+
+        return float(V[T - 1, -1]), path

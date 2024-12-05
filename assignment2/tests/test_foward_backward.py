@@ -60,7 +60,8 @@ def test_fb_probabilities_basic(hmm_model, feature_set):
 
     # Test entry/exit state properties
     assert np.all(alpha[1:, 0] == -np.inf), "Entry state should be -inf after t=0"
-    assert np.all(beta[:, -1] == -np.inf), "Exit state should always be -inf"
+    assert np.all(beta[:-1, -1] == -np.inf), "Exit state should be -inf except at final time"
+    assert beta[-1, -1] == 0, "Exit state at final time should be 0"
 
     # Test log probability properties
     assert np.all(
