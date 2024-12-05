@@ -181,79 +181,75 @@ class HMM:
 
         return log_emission_matrix
 
-    def forward(self, emission_matrix: np.ndarray) -> np.ndarray:
-        """
-        Compute forward probabilities using the log-space forward algorithm.
-        Returns TxN matrix of log forward probabilities.
-        """
+    def forward(self, emission_matrix: np.ndarray) -> tuple[np.ndarray, float]:
         T = emission_matrix.shape[0]
         alpha = np.full((T, self.total_states), -np.inf)
 
         # Initialize
-        alpha[0, 0] = 0  # Start in entry state with probability 1
-        alpha[0, 1] = np.log(self.A[0, 1]) + emission_matrix[0, 1]  # First real state
+        alpha[0, 0] = 0
+        alpha[0, 1] = np.log(self.A[0, 1]) + emission_matrix[0, 1]
 
-        # Forward recursion
+        # Forward pass
         for t in range(1, T):
+            alpha[t, 0] = -np.inf
             for j in range(1, self.total_states):
-                # Possible previous states
-                prev_states = []
-                if j == 1:  # First real state
-                    prev_states = [0, 1]  # Can come from entry or self
-                elif j == self.total_states - 1:  # Exit state
-                    prev_states = [j - 1, j]  # Can come from last real state or self
-                else:  # Other real states
-                    prev_states = [j - 1, j]  # Can come from previous state or self
-
-                # Compute log sum of incoming transitions
-                log_sum = -np.inf
-                for i in prev_states:
-                    log_sum = np.logaddexp(
-                        log_sum, alpha[t - 1, i] + np.log(self.A[i, j])
+                if j == 1:
+                    alpha[t, j] = (
+                        np.logaddexp(
+                            alpha[t - 1, 0] + np.log(self.A[0, 1]),
+                            alpha[t - 1, 1] + np.log(self.A[1, 1]),
+                        )
+                        + emission_matrix[t, j]
                     )
-
-                # Add emission probability if not in entry/exit state
-                if j not in [0, self.total_states - 1]:
-                    alpha[t, j] = log_sum + emission_matrix[t, j]
+                elif j < self.total_states - 1:
+                    alpha[t, j] = (
+                        np.logaddexp(
+                            alpha[t - 1, j - 1] + np.log(self.A[j - 1, j]),
+                            alpha[t - 1, j] + np.log(self.A[j, j]),
+                        )
+                        + emission_matrix[t, j]
+                    )
                 else:
-                    alpha[t, j] = log_sum
+                    alpha[t, j] = alpha[t - 1, j - 1] + np.log(self.A[j - 1, j])
 
-        return alpha
+        # Global scale factor
+        scale_factor = np.max(alpha)
+        alpha -= scale_factor
 
-    def backward(self, emission_matrix: np.ndarray) -> np.ndarray:
-        """
-        Compute backward probabilities using the log-space backward algorithm.
-        Returns TxN matrix of log backward probabilities.
-        """
+        return alpha, scale_factor
+
+    def backward(self, emission_matrix: np.ndarray, scale_factor: float) -> np.ndarray:
         T = emission_matrix.shape[0]
         beta = np.full((T, self.total_states), -np.inf)
 
-        # Initialize final time step
-        for j in range(self.total_states - 1):
-            if self.A[j, -1] > 0:  # If can transition to exit state
-                beta[T - 1, j] = np.log(self.A[j, -1])
-        beta[T - 1, -1] = 0  # Exit state
+        beta[-1, -1] = 0
 
-        # Backward recursion
         for t in range(T - 2, -1, -1):
-            for i in range(self.total_states - 1):  # All states except exit
-                if i == 0:  # Entry state
-                    next_states = [1]  # Can only go to first real state
-                else:  # Real states
-                    next_states = [i, i + 1]  # Can self-loop or go to next state
+            for i in range(self.total_states - 1):
+                if i == 0:
+                    beta[t, i] = (
+                        np.log(self.A[i, 1])
+                        + emission_matrix[t + 1, 1]
+                        + beta[t + 1, 1]
+                    )
+                elif i < self.total_states - 2:
+                    beta[t, i] = np.logaddexp(
+                        np.log(self.A[i, i])
+                        + emission_matrix[t + 1, i]
+                        + beta[t + 1, i],
+                        np.log(self.A[i, i + 1])
+                        + emission_matrix[t + 1, i + 1]
+                        + beta[t + 1, i + 1],
+                    )
+                else:
+                    beta[t, i] = np.logaddexp(
+                        np.log(self.A[i, i])
+                        + emission_matrix[t + 1, i]
+                        + beta[t + 1, i],
+                        np.log(self.A[i, i + 1]) + beta[t + 1, i + 1],
+                    )
 
-                # Compute log sum of outgoing transitions
-                log_sum = -np.inf
-                for j in next_states:
-                    log_trans = np.log(self.A[i, j])
-                    if j != self.total_states - 1:  # If not transitioning to exit
-                        log_sum = np.logaddexp(
-                            log_sum,
-                            log_trans + emission_matrix[t + 1, j] + beta[t + 1, j],
-                        )
-                    else:  # Transition to exit doesn't include emission
-                        log_sum = np.logaddexp(log_sum, log_trans + beta[t + 1, j])
-                beta[t, i] = log_sum
+        beta[:-1] -= scale_factor
 
         return beta
 
