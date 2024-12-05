@@ -34,15 +34,18 @@ class HMM:
 
     def init_parameters(self, feature_set: list[np.ndarray]) -> None:
         self.global_mean = self.calculate_means(feature_set)
+
+        # Calculate full covariance then zero out off-diagonal elements
         self.global_covariance = self.calculate_covariance(
             feature_set, self.global_mean
         )
+        self.global_covariance *= np.eye(self.num_obs)  # Zero out off-diagonal elements
 
-        # Apply variance floor to diagonal elements
+        # Apply variance floor to diagonal
         var_floor = self.var_floor_factor * np.mean(np.diag(self.global_covariance))
-        diag_indices = np.diag_indices_from(self.global_covariance)
-        self.global_covariance[diag_indices] = np.maximum(
-            self.global_covariance[diag_indices], var_floor
+        np.fill_diagonal(
+            self.global_covariance,
+            np.maximum(np.diag(self.global_covariance), var_floor),
         )
 
         self.A = self.initialize_transitions(feature_set, self.num_states)
