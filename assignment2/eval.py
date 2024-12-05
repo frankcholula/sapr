@@ -285,14 +285,89 @@ def eval_hmm_every_epoch(models_dir: str, implementation: str, n_iter: int, feat
         print(f"Epoch {epoch}: Overall Error Rate = {error_rate:.2%}")
 
 
+def compare_overall_error_rates(
+    models_dir: str,
+    implementation: str,
+    n_iter: int,
+    feature_sets: List[str],
+    figures_dir: str = "figures",
+) -> None:
+    """
+    Compare the overall error rates of multiple feature sets over epochs in a single plot.
+    """
+    figures_path = Path(figures_dir)
+    figures_path.mkdir(exist_ok=True)
+
+    overall_error_rates_comparison = {}
+
+    # Evaluate overall error rates for each feature set
+    for feature_set in feature_sets:
+        overall_error_rates = []
+
+        for epoch in range(n_iter):
+            try:
+                models, vocab = load_models(models_dir, implementation, epoch)
+            except ValueError as e:
+                logging.warning(f"Skipping epoch {epoch} for feature set '{feature_set}': {e}")
+                continue
+
+            logging.info(f"Evaluating models from epoch {epoch} for feature set '{feature_set}'...")
+            results = decode_vocabulary(models, vocab, feature_set)
+
+            # Calculate overall error rate for the epoch
+            total_correct = 0
+            total_samples = 0
+            for word in vocab:
+                word_results = results[word]
+                correct = sum(r["correct"] for r in word_results)
+                total = len(word_results)
+
+                total_correct += correct
+                total_samples += total
+
+            overall_error_rate = 1 - (total_correct / total_samples if total_samples > 0 else 0)
+            overall_error_rates.append(overall_error_rate)
+
+        overall_error_rates_comparison[feature_set] = overall_error_rates
+
+    # Plot overall error rate comparison
+    plt.figure(figsize=(10, 6))
+
+    for feature_set, error_rates in overall_error_rates_comparison.items():
+        epochs = range(len(error_rates))
+        plt.plot(epochs, error_rates, marker='o', label=feature_set)
+
+    plt.xlabel("Epoch")
+    plt.ylabel("Overall Error Rate")
+    plt.title("Comparison of Overall Error Rates Across Feature Sets")
+    plt.legend(loc='upper right')
+    plt.grid(True)
+    plt.tight_layout()
+    plt.savefig(figures_path / "overall_error_rate_comparison.png")
+    plt.close()
+
+    # Print summary of results
+    print("\nOverall Error Rate Comparison Summary:")
+    for feature_set, error_rates in overall_error_rates_comparison.items():
+        print(f"\nFeature Set: {feature_set}")
+        for epoch, error_rate in enumerate(error_rates):
+            print(f"Epoch {epoch}: Overall Error Rate = {error_rate:.2%}")
+
+
+
+
+
+
+
+
+
 if __name__ == "__main__":
-     print("\nEvaluating development set at every epoch:")
-     eval_hmm_every_epoch(models_dir="trained_models", implementation="hmmlearn", n_iter=16)
-     print("\nEvaluating evaluation set at every epoch:")
-     eval_hmm_every_epoch(models_dir="trained_models", implementation="hmmlearn", n_iter=16, feature_set="eval_feature_set")
-    
-    
-    
+    #  print("\nEvaluating development set at every epoch:")
+    #  eval_hmm_every_epoch(models_dir="trained_models", implementation="hmmlearn", n_iter=16)
+    #  print("\nEvaluating evaluation set at every epoch:")
+    #  eval_hmm_every_epoch(models_dir="trained_models", implementation="hmmlearn", n_iter=16, feature_set="eval_feature_set")
+     compare_overall_error_rates(models_dir="trained_models", implementation="hmmlearn",  n_iter=16, feature_sets=["feature_set", "eval_feature_set"], ) # Replace with your feature set names)
+        
     
     # print("\nEvaluating development set:")
     # custom_dev_results = eval_hmm("custom", "feature_set", model_iter=15)
