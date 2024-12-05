@@ -1,22 +1,65 @@
-# import pytest
-# import numpy as np
-# from custom_hmm import HMM
-# from mfcc_extract import load_mfccs, load_mfccs_by_word
+import pytest
+import numpy as np
+from custom_hmm import HMM
+from mfcc_extract import load_mfccs, load_mfccs_by_word
+import pandas as pd
 
 
-# @pytest.fixture
-# def feature_set():
-#     return load_mfccs("feature_set")
+@pytest.fixture
+def feature_set():
+    return load_mfccs("feature_set")
 
 
-# @pytest.fixture
-# def hmm_model(feature_set):
-#     return HMM(8, 13, feature_set)
+@pytest.fixture
+def hmm_model(feature_set):
+    return HMM(8, 13, feature_set)
 
 
-# @pytest.fixture
-# def heed_features():
-#     return load_mfccs_by_word("feature_set", "heed")
+@pytest.fixture
+def heed_features():
+    return load_mfccs_by_word("feature_set", "heed")
+
+
+def test_gamma_properties(hmm_model, feature_set):
+    """Test if gamma probabilities have expected properties"""
+    test_features = feature_set[0]
+    emission_matrix = hmm_model.compute_emission_matrix(test_features)
+    alpha = hmm_model.forward(emission_matrix)
+    beta = hmm_model.backward(emission_matrix)
+    gamma = hmm_model.compute_gamma(alpha, beta)
+
+    T = emission_matrix.shape[0]
+
+    # Print first few time steps
+    pd.set_option("display.precision", 4)
+    pd.set_option("display.float_format", "{:.4f}".format)
+
+    print("\nGamma probabilities for first 5 time steps:")
+    gamma_df = pd.DataFrame(
+        gamma[:5],
+        columns=[f"State_{i}" for i in range(hmm_model.total_states)],
+        index=[f"t={i}" for i in range(5)],
+    )
+    print(gamma_df)
+
+    # Check normalization
+    sums = np.sum(gamma, axis=1)
+    print("\nSum of probabilities at each time step (should be close to 1):")
+    for t in range(min(5, T)):
+        print(f"t={t}: {sums[t]:.6f}")
+
+    # Check left-right topology properties
+    # At t=0, only entry and first real state should have non-zero probabilities
+    print("\nFirst time step probabilities:")
+    print(gamma[0])
+
+    # Check state progression
+    # For a few time points, print which states have significant probability
+    print("\nActive states (prob > 0.01) at different time points:")
+    check_times = [0, T // 4, T // 2, 3 * T // 4, T - 1]
+    for t in check_times:
+        active = np.where(gamma[t] > 0.01)[0]
+        print(f"t={t}: states {active} active")
 
 
 # def test_gamma_xi_probabilities(hmm_model, feature_set):
@@ -37,8 +80,8 @@
 #     assert np.all(gamma >= 0) and np.all(gamma <= 1)
 #     assert np.all(xi >= 0) and np.all(xi <= 1)
 
-#     print("\nGamma Matrix (time step 10):")
-#     hmm_model.print_matrix(gamma[10:11], "Gamma Matrix", col="State", idx="T")
+#     print("\nGamma Matrix:")
+#     hmm_model.print_matrix(gamma, "Gamma Matrix", col="State", idx="T")
 
 #     print("\nXi Matrix for t=10 (transitions from time step 10):")
 #     hmm_model.print_matrix(xi[10], "Xi Matrix t=10", col="To State", idx="From State")
