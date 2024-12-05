@@ -8,6 +8,7 @@ from hmmlearn_hmm import HMMLearnModel
 from typing import List, Literal, Dict, Union
 from mfcc_extract import load_mfccs, load_mfccs_by_word
 from matplotlib import pyplot as plt
+from decoder import Decoder
 
 logging.basicConfig(level=logging.INFO)
 logging.getLogger("matplotlib").setLevel(logging.WARNING)
@@ -124,6 +125,62 @@ def train_hmm(
     return hmms
 
 
+
+
+
+
+def train_hmm_for_each_epoch(
+    implementation: Literal["custom", "hmmlearn"] = "hmmlearn",
+    num_states: int = 8,
+    num_features: int = 13,
+    n_iter: int = 15,
+    min_covar: float = 0.01,
+    var_floor_factor: float = 0.001
+) -> Dict[str, Union[HMM, HMMLearnModel]]:
+    vocabs = [
+        "heed", "hid", "head", "had", "hard", "hud", 
+        "hod", "hoard", "hood", "whod", "heard"
+    ]
+    epochs = n_iter
+    models_dir = Path("trained_models")
+    impl_dir = models_dir / implementation
+    impl_dir.mkdir(parents=True, exist_ok=True)
+
+    feature_set = load_mfccs("feature_set")
+    features = {word: load_mfccs_by_word("feature_set", word) for word in vocabs}
+    eval_features = {word: load_mfccs_by_word("eval_feature_set", word) for word in vocabs}
+    total_features_length = sum(len(features[word]) for word in vocabs)
+    assert total_features_length == len(feature_set)
+
+    hmms = {}
+    training_histories = {}
+    for epoch in range(epochs):
+        print(f"Epoch {epoch + 1}")
+        for word in vocabs:
+            logging.info(f"\nTraining model for word: {word}")
+            model_path = impl_dir / f"{word}_{implementation}_epoch_{epoch}.pkl"
+            # not implemented
+            if implementation == "custom":
+                hmm = HMM(num_states, num_features, feature_set, model_name=word, var_floor_factor=var_floor_factor)
+                log_likelihoods = hmm.baum_welch(features[word], epoch)
+                trained_model = hmm
+            elif implementation == "hmmlearn":
+                hmm = HMMLearnModel(num_states=num_states, model_name=word, n_iter=epoch, min_covar=min_covar)
+                trained_model, _ = hmm.fit(features[word])
+                log_likelihoods = hmm.model.monitor_.history
+
+            training_histories[word] = log_likelihoods
+            save_model(trained_model, model_path)
+            hmms[word] = hmm
+
+        #plot_training_progress(training_histories, implementation)
+    return hmms
+
+
+
+
+
+
 if __name__ == "__main__":
     print("\nTraining with `hmmlearn` implementation:")
     num_states = 8
@@ -131,12 +188,13 @@ if __name__ == "__main__":
     n_iter = 15
     min_covar = 0.01
     print(f"Number of states: {num_states} | Number of features: {num_features}" f" | Number of iterations: {n_iter} | Minimum covariance: {min_covar}")
-    train_hmm("hmmlearn", num_states, num_features, n_iter, min_covar)
-
-    print("\nTraining with `custom` implementation:")
-    num_states = 8
-    num_features = 13
-    n_iter = 15
-    var_floor_factor = 0.01
-    print(f"Number of states: {num_states} | Number of features: {num_features}" f" | Number of iterations: {n_iter} | Variance floor factor: {var_floor_factor}")
-    train_hmm("custom", num_states, num_features, n_iter, var_floor_factor)
+    #train_hmm("hmmlearn", num_states, num_features, n_iter, min_covar)
+    train_hmm_for_each_epoch("hmmlearn", num_states, num_features, n_iter, min_covar)
+    
+    # print("\nTraining with `custom` implementation:")
+    # num_states = 8
+    # num_features = 13
+    # n_iter = 15
+    # var_floor_factor = 0.01
+    # print(f"Number of states: {num_states} | Number of features: {num_features}" f" | Number of iterations: {n_iter} | Variance floor factor: {var_floor_factor}")
+    # train_hmm("custom", num_states, num_features, n_iter, var_floor_factor)
