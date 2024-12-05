@@ -362,10 +362,10 @@ def compare_overall_error_rates(
 
 
 if __name__ == "__main__":
-    #  print("\nEvaluating development set at every epoch:")
-    #  eval_hmm_every_epoch(models_dir="trained_models", implementation="hmmlearn", n_iter=16)
-    #  print("\nEvaluating evaluation set at every epoch:")
-    #  eval_hmm_every_epoch(models_dir="trained_models", implementation="hmmlearn", n_iter=16, feature_set="eval_feature_set")
+     print("\nEvaluating development set at every epoch:")
+     eval_hmm_every_epoch(models_dir="trained_models", implementation="hmmlearn", n_iter=16)
+     print("\nEvaluating evaluation set at every epoch:")
+     eval_hmm_every_epoch(models_dir="trained_models", implementation="hmmlearn", n_iter=16, feature_set="eval_feature_set")
      compare_overall_error_rates(models_dir="trained_models", implementation="hmmlearn",  n_iter=16, feature_sets=["feature_set", "eval_feature_set"], ) # Replace with your feature set names)
         
     
