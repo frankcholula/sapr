@@ -191,6 +191,8 @@ def decode_vocabulary(models: Dict, vocab: List[str], feature_set: str = "featur
     return all_results
 
 
+
+
 def plot_error_rate_all_classes_over_epochs(class_error_rates: Dict[str, List[float]], feature_set: str, figures_dir: str = "figures") -> None:
     """
     Plot and save error rate for all classes (words) over epochs in a single figure.
@@ -214,11 +216,32 @@ def plot_error_rate_all_classes_over_epochs(class_error_rates: Dict[str, List[fl
     plt.close()
 
 
+def plot_overall_error_rate_over_epochs(overall_error_rates: List[float], feature_set: str, figures_dir: str = "figures") -> None:
+    """
+    Plot and save the overall error rate across epochs in a single figure.
+    """
+    figures_path = Path(figures_dir)
+    figures_path.mkdir(exist_ok=True)
+
+    epochs = range(len(overall_error_rates))
+
+    plt.figure(figsize=(10, 6))
+    plt.plot(epochs, overall_error_rates, marker='o', color='r')
+    plt.xlabel("Epoch")
+    plt.ylabel("Overall Error Rate")
+    plt.title(f"Overall Error Rate Over Epochs for Feature Set: {feature_set}")
+    plt.grid(True)
+    plt.tight_layout()
+    plt.savefig(figures_path / f"{feature_set}_overall_error_rate_over_epochs.png")
+    plt.close()
+
+
 def eval_hmm_every_epoch(models_dir: str, implementation: str, n_iter: int, feature_set: str = "feature_set", figures_dir: str = "figures") -> None:
     """
-    Evaluate models for all epochs, log error rate, and save a single error rate plot for all classes over epochs.
+    Evaluate models for all epochs, log error rate, and save plots for class-wise and overall error rates over epochs.
     """
     class_error_rates = {}
+    overall_error_rates = []
 
     for epoch in range(n_iter):
         try:
@@ -231,6 +254,8 @@ def eval_hmm_every_epoch(models_dir: str, implementation: str, n_iter: int, feat
         results = decode_vocabulary(models, vocab, feature_set)
 
         # Calculate error rate per word
+        total_correct = 0
+        total_samples = 0
         for word in vocab:
             word_results = results[word]
             correct = sum(r["correct"] for r in word_results)
@@ -241,20 +266,30 @@ def eval_hmm_every_epoch(models_dir: str, implementation: str, n_iter: int, feat
                 class_error_rates[word] = []
             class_error_rates[word].append(error_rate)
 
+            total_correct += correct
+            total_samples += total
+
+        # Calculate overall error rate for the epoch
+        overall_error_rate = 1 - (total_correct / total_samples if total_samples > 0 else 0)
+        overall_error_rates.append(overall_error_rate)
+
     # Plot error rate for all classes over epochs
     plot_error_rate_all_classes_over_epochs(class_error_rates, feature_set, figures_dir)
 
+    # Plot overall error rate over epochs
+    plot_overall_error_rate_over_epochs(overall_error_rates, feature_set, figures_dir)
+
     # Print summary of results
     print("\nEpoch Evaluation Summary:")
-    for word, error_rates in class_error_rates.items():
-        print(f"{word}: Error Rates = {error_rates}")
+    for epoch, error_rate in enumerate(overall_error_rates):
+        print(f"Epoch {epoch}: Overall Error Rate = {error_rate:.2%}")
 
 
 if __name__ == "__main__":
      print("\nEvaluating development set at every epoch:")
-     eval_hmm_every_epoch(models_dir="trained_models", implementation="hmmlearn", n_iter=15)
+     eval_hmm_every_epoch(models_dir="trained_models", implementation="hmmlearn", n_iter=16)
      print("\nEvaluating evaluation set at every epoch:")
-     eval_hmm_every_epoch(models_dir="trained_models", implementation="hmmlearn", n_iter=15, feature_set="eval_feature_set")
+     eval_hmm_every_epoch(models_dir="trained_models", implementation="hmmlearn", n_iter=16, feature_set="eval_feature_set")
     
     
     

@@ -154,7 +154,7 @@ def train_hmm_for_each_epoch(
 
     hmms = {}
     training_histories = {}
-    for epoch in range(epochs):
+    for epoch in range(epochs+1):
         print(f"Epoch {epoch + 1}")
         for word in vocabs:
             logging.info(f"\nTraining model for word: {word}")
