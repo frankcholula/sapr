@@ -35,7 +35,7 @@ def calculate_metrics(true_labels: List[str], predicted_labels: List[str], vocab
     return cm, accuracy
 
 
-def plot_confusion_matrix(cm: np.ndarray, vocab: List[str], implementation: str, feature_set_path: str) -> None:
+def plot_confusion_matrix(cm: np.ndarray, vocab: List[str], implementation: str, feature_set_path: str, model_iter: int) -> None:
     plt.figure(figsize=(12, 10))
     
     mask_correct = np.zeros_like(cm, dtype=bool)
@@ -50,7 +50,7 @@ def plot_confusion_matrix(cm: np.ndarray, vocab: List[str], implementation: str,
     sns.heatmap(cm_correct, annot=True, cmap='Greens', fmt='d',
                 xticklabels=vocab, yticklabels=vocab, cbar=False)
     
-    plt.title(f'Confusion Matrix - {implementation} ({Path(feature_set_path).stem})')
+    plt.title(f'Confusion Matrix - {implementation} ({Path(feature_set_path).stem}) - {model_iter} iterations')
     plt.xlabel('Predicted')
     plt.ylabel('True')
     
@@ -93,7 +93,7 @@ def eval_hmm(
     logging.info(f"\nOverall Accuracy: {accuracy:.2%}")
 
     log_per_word_accuracy(all_results)
-    plot_confusion_matrix(cm, decoder.vocab, implementation, feature_set_path)
+    plot_confusion_matrix(cm, decoder.vocab, implementation, feature_set_path, model_iter)
 
     return {
         "results": all_results,
@@ -106,9 +106,9 @@ def eval_hmm(
 
 if __name__ == "__main__":
     print("\nEvaluating development set:")
-    custom_dev_results = eval_hmm("custom", "feature_set", model_iter=15)
+    # custom_dev_results = eval_hmm("custom", "feature_set", model_iter=15)
     hmmlearn_dev_results = eval_hmm("hmmlearn", "feature_set", model_iter=15)
 
     print("\nEvaluating test set:")
     custom_test_results = eval_hmm("hmmlearn", "eval_feature_set", model_iter=15)
-    hmmlearn_test_results = eval_hmm("custom", "eval_feature_set", model_iter=15)
+    # hmmlearn_test_results = eval_hmm("custom", "eval_feature_set", model_iter=15)

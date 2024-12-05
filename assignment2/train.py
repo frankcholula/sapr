@@ -133,10 +133,10 @@ if __name__ == "__main__":
     print(f"Number of states: {num_states} | Number of features: {num_features}" f" | Number of iterations: {n_iter} | Minimum covariance: {min_covar}")
     train_hmm("hmmlearn", num_states, num_features, n_iter, min_covar)
 
-    print("\nTraining with `custom` implementation:")
-    num_states = 8
-    num_features = 13
-    n_iter = 15
-    var_floor_factor = 0.01
-    print(f"Number of states: {num_states} | Number of features: {num_features}" f" | Number of iterations: {n_iter} | Variance floor factor: {var_floor_factor}")
-    train_hmm("custom", num_states, num_features, n_iter, var_floor_factor)
+    # print("\nTraining with `custom` implementation:")
+    # num_states = 8
+    # num_features = 13
+    # n_iter = 15
+    # var_floor_factor = 0.01
+    # print(f"Number of states: {num_states} | Number of features: {num_features}" f" | Number of iterations: {n_iter} | Variance floor factor: {var_floor_factor}")
+    # train_hmm("custom", num_states, num_features, n_iter, var_floor_factor)
