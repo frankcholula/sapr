@@ -371,157 +371,156 @@ class HMM:
         # Exit state always self-loops
         self.A[-1, -1] = 1.0
 
-    def update_B(
-        self, features_list: list[np.ndarray], gamma_per_seq: list[np.ndarray]
-    ) -> None:
-        """
-        Update emission parameters using accumulated statistics.
-        """
-        state_means = np.zeros((self.total_states, self.num_obs))
-        state_vars = np.zeros((self.total_states, self.num_obs))
-        state_occupancy = np.zeros(self.total_states)
+    # def update_B(
+    #     self, features_list: list[np.ndarray], gamma_per_seq: list[np.ndarray]
+    # ) -> None:
+    #     state_means = np.zeros((self.total_states, self.num_obs))
+    #     state_covars = np.zeros((self.total_states, self.num_obs, self.num_obs))
+    #     state_occupancy = np.zeros(self.total_states)
 
-        # First pass: compute new means
-        for features, gamma in zip(features_list, gamma_per_seq):
-            # Sum weighted observations for each state (exclude entry/exit)
-            for j in range(1, self.total_states - 1):
-                state_means[j] += np.sum(gamma[:, j : j + 1] * features.T, axis=0)
-                state_occupancy[j] += np.sum(gamma[:, j])
+    #     # Update means first
+    #     for features, gamma in zip(features_list, gamma_per_seq):
+    #         for j in range(1, self.total_states - 1):
+    #             state_means[j] += np.sum(gamma[:, j : j + 1] * features.T, axis=0)
+    #             state_occupancy[j] += np.sum(gamma[:, j])
 
-        # Normalize means by state occupancy
-        for j in range(1, self.total_states - 1):
-            if state_occupancy[j] > 0:
-                state_means[j] /= state_occupancy[j]
+    #     for j in range(1, self.total_states - 1):
+    #         if state_occupancy[j] > 0:
+    #             state_means[j] /= state_occupancy[j]
 
-        # Second pass: compute new variances
-        for features, gamma in zip(features_list, gamma_per_seq):
-            for j in range(1, self.total_states - 1):
-                diff = features.T - state_means[j]
-                state_vars[j] += np.sum(gamma[:, j : j + 1] * (diff**2), axis=0)
+    #     # Update covariance matrices
+    #     for features, gamma in zip(features_list, gamma_per_seq):
+    #         for j in range(1, self.total_states - 1):
+    #             diff = features.T - state_means[j]
+    #             for t in range(features.shape[1]):
+    #                 state_covars[j] += gamma[t, j] * np.outer(diff[t], diff[t])
 
-        # Normalize variances and apply floor
-        for j in range(1, self.total_states - 1):
-            if state_occupancy[j] > 0:
-                state_vars[j] /= state_occupancy[j]
+    #     # Normalize and apply variance floor
+    #     var_floor = self.var_floor_factor * np.mean(np.diagonal(self.global_covariance))
+    #     for j in range(1, self.total_states - 1):
+    #         if state_occupancy[j] > 0:
+    #             state_covars[j] /= state_occupancy[j]
+    #             # Ensure symmetry
+    #             state_covars[j] = (state_covars[j] + state_covars[j].T) / 2
+    #             # Apply floor to diagonal
+    #             diag_indices = np.diag_indices(self.num_obs)
+    #             state_covars[j][diag_indices] = np.maximum(
+    #                 state_covars[j][diag_indices], var_floor
+    #             )
 
-        # Apply variance floor
-        var_floor = self.var_floor_factor * np.mean(state_vars[1:-1])
-        state_vars[1:-1] = np.maximum(state_vars[1:-1], var_floor)
+    #     self.B["mean"] = state_means
+    #     self.B["covariance"] = state_covars
 
-        # Update model parameters
-        self.B["mean"] = state_means
-        self.B["covariance"] = state_vars
+    # def baum_welch(
+    #     self, features_list: list[np.ndarray], max_iter: int = 15, tol: float = 1e-4
+    # ):
+    #     """
+    #     Train the HMM using the Baum-Welch algorithm on multiple sequences.
+    #     Returns the log likelihood values for each iteration to monitor convergence.
+    #     """
+    #     print(f"\nTraining `{self.model_name}` HMM using Baum-Welch algorithm...")
+    #     prev_log_likelihood = float("-inf")
+    #     log_likelihood_history = []
 
-    def baum_welch(
-        self, features_list: list[np.ndarray], max_iter: int = 15, tol: float = 1e-4
-    ):
-        """
-        Train the HMM using the Baum-Welch algorithm on multiple sequences.
-        Returns the log likelihood values for each iteration to monitor convergence.
-        """
-        print(f"\nTraining `{self.model_name}` HMM using Baum-Welch algorithm...")
-        prev_log_likelihood = float("-inf")
-        log_likelihood_history = []
+    #     for iteration in range(max_iter):
+    #         total_log_likelihood = 0
 
-        for iteration in range(max_iter):
-            total_log_likelihood = 0
+    #         # Initialize accumulators for transition updates
+    #         aggregated_gamma = np.zeros(self.total_states)
+    #         aggregated_xi = np.zeros((self.total_states, self.total_states))
+    #         gamma_per_seq = []
 
-            # Initialize accumulators for transition updates
-            aggregated_gamma = np.zeros(self.total_states)
-            aggregated_xi = np.zeros((self.total_states, self.total_states))
-            gamma_per_seq = []
+    #         # E-Step across all sequences
+    #         for features in features_list:
+    #             # Forward-backward calculations
+    #             emission_matrix = self.compute_emission_matrix(features)
+    #             alpha, scale_factors = self.forward(emission_matrix)
+    #             beta = self.backward(emission_matrix, scale_factors)
+    #             gamma = self.compute_gamma(alpha, beta)
+    #             xi = self.compute_xi(alpha, beta, emission_matrix)
 
-            # E-Step across all sequences
-            for features in features_list:
-                # Forward-backward calculations
-                emission_matrix = self.compute_emission_matrix(features)
-                alpha = self.forward(emission_matrix)
-                beta = self.backward(emission_matrix)
-                gamma = self.compute_gamma(alpha, beta)
-                xi = self.compute_xi(alpha, beta, emission_matrix)
+    #             # Store gamma for B updates
+    #             gamma_per_seq.append(gamma)
 
-                # Store gamma for B updates
-                gamma_per_seq.append(gamma)
+    #             # Accumulate statistics for A updates
+    #             aggregated_gamma += np.sum(gamma[:-1], axis=0)  # Sum over time
+    #             aggregated_xi += np.sum(xi, axis=0)  # Sum over time
 
-                # Accumulate statistics for A updates
-                aggregated_gamma += np.sum(gamma[:-1], axis=0)  # Sum over time
-                aggregated_xi += np.sum(xi, axis=0)  # Sum over time
+    #             # Compute sequence log-likelihood
+    #             seq_log_likelihood = np.logaddexp.reduce(alpha[-1])
+    #             total_log_likelihood += seq_log_likelihood
 
-                # Compute sequence log-likelihood
-                seq_log_likelihood = np.logaddexp.reduce(alpha[-1])
-                total_log_likelihood += seq_log_likelihood
+    #         # Store log likelihood
+    #         log_likelihood_history.append(total_log_likelihood)
 
-            # Store log likelihood
-            log_likelihood_history.append(total_log_likelihood)
+    #         print(
+    #             f"Iteration {iteration + 1}, Log-Likelihood: {total_log_likelihood:.2f}"
+    #         )
 
-            print(
-                f"Iteration {iteration + 1}, Log-Likelihood: {total_log_likelihood:.2f}"
-            )
+    #         # Check convergence
+    #         if abs(total_log_likelihood - prev_log_likelihood) < tol:
+    #             print(f"Converged after {iteration + 1} iterations!")
+    #             break
 
-            # Check convergence
-            if abs(total_log_likelihood - prev_log_likelihood) < tol:
-                print(f"Converged after {iteration + 1} iterations!")
-                break
+    #         prev_log_likelihood = total_log_likelihood
 
-            prev_log_likelihood = total_log_likelihood
+    #         # M-Step: Update model parameters
+    #         self.update_A(aggregated_xi, aggregated_gamma)
+    #         self.update_B(features_list, gamma_per_seq)
 
-            # M-Step: Update model parameters
-            self.update_A(aggregated_xi, aggregated_gamma)
-            self.update_B(features_list, gamma_per_seq)
+    #     print("Training complete!")
+    #     return log_likelihood_history
 
-        print("Training complete!")
-        return log_likelihood_history
+    # def decode(self, features: np.ndarray) -> Tuple[List[int], float]:
+    #     """
+    #     Decode the most likely state sequence using the Viterbi algorithm.
+    #     """
+    #     T = features.shape[0]
+    #     emission_matrix = self.compute_emission_matrix(features)
 
-    def decode(self, features: np.ndarray) -> Tuple[List[int], float]:
-        """
-        Decode the most likely state sequence using the Viterbi algorithm.
-        """
-        T = features.shape[0]
-        emission_matrix = self.compute_emission_matrix(features)
+    #     V = np.full((T, self.total_states), -np.inf)
+    #     backpointer = np.zeros((T, self.total_states), dtype=int)
 
-        V = np.full((T, self.total_states), -np.inf)
-        backpointer = np.zeros((T, self.total_states), dtype=int)
+    #     V[0, 0] = 0
+    #     V[0, 1] = np.log(self.A[0, 1]) + emission_matrix[0, 1]
 
-        V[0, 0] = 0
-        V[0, 1] = np.log(self.A[0, 1]) + emission_matrix[0, 1]
+    #     for t in range(1, T):
+    #         for j in range(1, self.total_states):
+    #             if j == 1:
+    #                 prev_states = [1]
+    #                 if t == 1:
+    #                     prev_states.append(0)
+    #             elif j == self.total_states - 1:
+    #                 if t >= self.num_states:
+    #                     prev_states = [j - 1, j]
+    #                 else:
+    #                     continue
+    #             else:
+    #                 prev_states = [j - 1, j]
 
-        for t in range(1, T):
-            for j in range(1, self.total_states):
-                if j == 1:
-                    prev_states = [1]
-                    if t == 1:
-                        prev_states.append(0)
-                elif j == self.total_states - 1:
-                    if t >= self.num_states:
-                        prev_states = [j - 1, j]
-                    else:
-                        continue
-                else:
-                    prev_states = [j - 1, j]
+    #             best_score = -np.inf
+    #             best_prev = None
 
-                best_score = -np.inf
-                best_prev = None
+    #             for i in prev_states:
+    #                 score = V[t - 1, i] + np.log(self.A[i, j])
+    #                 if score > best_score:
+    #                     best_score = score
+    #                     best_prev = i
 
-                for i in prev_states:
-                    score = V[t - 1, i] + np.log(self.A[i, j])
-                    if score > best_score:
-                        best_score = score
-                        best_prev = i
+    #             if best_prev is not None:
+    #                 if j != 0 and j != self.total_states - 1:
+    #                     V[t, j] = best_score + emission_matrix[t, j]
+    #                 else:
+    #                     V[t, j] = best_score
+    #                 backpointer[t, j] = best_prev
 
-                if best_prev is not None:
-                    if j != 0 and j != self.total_states - 1:
-                        V[t, j] = best_score + emission_matrix[t, j]
-                    else:
-                        V[t, j] = best_score
-                    backpointer[t, j] = best_prev
+    #     path = []
+    #     curr_state = self.total_states - 1
 
-        path = []
-        curr_state = self.total_states - 1
+    #     for t in range(T - 1, -1, -1):
+    #         path.append(curr_state)
+    #         curr_state = backpointer[t, curr_state]
 
-        for t in range(T - 1, -1, -1):
-            path.append(curr_state)
-            curr_state = backpointer[t, curr_state]
+    #     path.reverse()
 
-        path.reverse()
-
-        return float(V[T - 1, -1]), path
+    #     return float(V[T - 1, -1]), path
