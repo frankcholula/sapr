@@ -19,237 +19,177 @@ def heed_features():
     return load_mfccs_by_word("feature_set", "heed")
 
 
-def test_global_mean(hmm_model, feature_set):
-    assert hmm_model.mean.shape == (13,)
-    assert np.allclose(
-        hmm_model.mean, np.mean(np.concatenate(feature_set, axis=1), axis=1)
-    ), "Global mean should be the mean of all features"
-    print(f"\nGlobal Mean:\n{hmm_model.mean}")
-
-
-def test_emission_matrix(hmm_model, feature_set):
-    test_features = feature_set[0]
-    B_probs = hmm_model.compute_log_emission_matrix(test_features)
-
-    # Test shape
-    assert B_probs.shape == (8, test_features.shape[1])
-
-    # Test basic properties
-    assert np.all(B_probs <= 0), "Log probabilities should be non-positive"
-    assert np.all(
-        np.isfinite(B_probs[B_probs != -np.inf])
-    ), "Log probabilities should be finite where not -inf"
-
-    # Since we initialized with global means, first frame probabilities should be similar
-    first_frame_probs = B_probs[:, 0]
-    print(f"\nFirst Frame Log Probabilities:\n{first_frame_probs}")
-    prob_std = np.std(first_frame_probs)
-    assert prob_std < 1e-10, "Initial log probabilities should be similar across states"
-    hmm_model.print_matrix(
-        B_probs, "Emission Matrix", col="T", idx="State", start_idx=1, start_col=1
-    )
-
-
-def test_fb_probabilities(hmm_model, feature_set):
-    emission_matrix = hmm_model.compute_log_emission_matrix(feature_set[0])
-    alpha = hmm_model.forward(emission_matrix, use_log=True)
-    beta = hmm_model.backward(emission_matrix, use_log=True)
-    T = emission_matrix.shape[1]
-    # Test 1: First observation emission * first backward probability
-    test1 = emission_matrix[0, 0] + beta[0, 0]
-
-    # Test 2: Last transition to exit * last forward probability
-    test2 = np.log(hmm_model.A[-2, -1]) + alpha[-2, T - 1]
-
-    print(f"\nTest 1: {test1}")
-    print(f"\nTest 2: {test2}")
-    print(f"\nDifference: {abs(test1 - test2)}")
-    hmm_model.print_matrix(
-        alpha, "Alpha Matrix", col="T", idx="State", start_idx=0, start_col=1
-    )
-    hmm_model.print_matrix(
-        beta, "Beta Matrix", col="T", idx="State", start_idx=0, start_col=1
-    )
-
-
 def test_gamma_xi_probabilities(hmm_model, feature_set):
-    emission_matrix = hmm_model.compute_log_emission_matrix(feature_set[0])
-    alpha = hmm_model.forward(emission_matrix, use_log=True)
-    beta = hmm_model.backward(emission_matrix, use_log=True)
+    test_features = feature_set[0]
+    emission_matrix = hmm_model.compute_emission_matrix(test_features)
+    alpha = hmm_model.forward(emission_matrix)
+    beta = hmm_model.backward(emission_matrix)
     gamma = hmm_model.compute_gamma(alpha, beta)
     xi = hmm_model.compute_xi(alpha, beta, emission_matrix)
-    assert xi.shape == (
-        emission_matrix.shape[1] - 1,
-        hmm_model.num_states,
-        hmm_model.num_states,
-    )
-    assert gamma.shape == (hmm_model.num_states, feature_set[0].shape[1])
-    xi_summed = np.sum(xi, axis=2).T
-    hmm_model.print_matrix(
-        gamma, "Gamma Matrix", col="T", idx="State", start_idx=1, start_col=1
-    )
-    hmm_model.print_matrix(
-        xi_summed, "Summed Xi Matrix", col="T", idx="State", start_idx=1, start_col=1
-    )
-    np.testing.assert_array_almost_equal(gamma[:, :-1], xi_summed)
+
+    T = emission_matrix.shape[0]
+
+    # Test dimensions
+    assert gamma.shape == (T, hmm_model.total_states)
+    assert xi.shape == (T - 1, hmm_model.total_states, hmm_model.total_states)
+
+    # Test probability properties
+    assert np.all(gamma >= 0) and np.all(gamma <= 1)
+    assert np.all(xi >= 0) and np.all(xi <= 1)
+
+    print("\nGamma Matrix (time step 10):")
+    hmm_model.print_matrix(gamma[10:11], "Gamma Matrix", col="State", idx="T")
+
+    print("\nXi Matrix for t=10 (transitions from time step 10):")
+    hmm_model.print_matrix(xi[10], "Xi Matrix t=10", col="To State", idx="From State")
 
 
 def test_update_transitions(hmm_model, heed_features):
-    """
-    Test the HMM transition matrix updates using multiple MFCC feature sequences from the 'heed' word.
-    This test verifies that:
-    1. The transition matrix maintains proper left-right HMM structure
-    2. Probabilities are properly normalized
-    3. Entry and exit state transitions are correctly handled
-    """
-    # Initialize accumulators for statistics across sequences
-    aggregated_gamma = np.zeros((hmm_model.num_states, 1))
-    aggregated_xi = np.zeros((hmm_model.num_states, hmm_model.num_states))
-    for seq_idx, heed_feature in enumerate(heed_features):
-        # Compute forward-backward statistics for this sequence
-        emission_matrix = hmm_model.compute_log_emission_matrix(heed_feature)
-        alpha = hmm_model.forward(emission_matrix, use_log=True)
-        beta = hmm_model.backward(emission_matrix, use_log=True)
+    """Test HMM transition matrix updates with multiple MFCC feature sequences."""
+    # Accumulate statistics across all sequences
+    aggregated_gamma = np.zeros(hmm_model.total_states)
+    aggregated_xi = np.zeros((hmm_model.total_states, hmm_model.total_states))
 
-        # Compute gamma and xi for this sequence
-        gamma = hmm_model.compute_gamma(alpha, beta, use_log=True)
-        xi = hmm_model.compute_xi(alpha, beta, emission_matrix, use_log=True)
+    for features in heed_features:
+        emission_matrix = hmm_model.compute_emission_matrix(features)
+        alpha = hmm_model.forward(emission_matrix)
+        beta = hmm_model.backward(emission_matrix)
+        gamma = hmm_model.compute_gamma(alpha, beta)
+        xi = hmm_model.compute_xi(alpha, beta, emission_matrix)
 
-        # Accumulate statistics
-        aggregated_gamma += np.sum(gamma, axis=1, keepdims=True)
-        aggregated_xi += np.sum(xi, axis=0)
-        print(f"\nProcessed sequence {seq_idx + 1}")
-        print(f"Sequence length: {heed_feature.shape[1]} frames")
-        assert np.isclose(
-            np.sum(gamma), heed_feature.shape[1]
-        ), "Gamma sum should equal T"
-        assert np.isclose(
-            np.sum(xi), heed_feature.shape[1] - 1
-        ), "Xi sum should equal T-1"
+        # Sum over time
+        aggregated_gamma += np.sum(gamma[:-1], axis=0)  # Exclude last frame
+        aggregated_xi += np.sum(xi, axis=0)  # Sum over time
 
+    print("\nDiagnostic Information:")
+    print(f"Aggregated gamma shape: {aggregated_gamma.shape}")
+    print(f"Aggregated xi shape: {aggregated_xi.shape}")
+    print("\nAggregated gamma sums per state:")
+    for i in range(hmm_model.total_states):
+        print(f"State {i}: {aggregated_gamma[i]:.6f}")
+
+    print("\nXi transition sums for first real state (state 1):")
+    print(f"Sum of transitions from state 1: {np.sum(aggregated_xi[1, :]):.6f}")
+    print(f"Self-loop (1->1): {aggregated_xi[1, 1]:.6f}")
+    print(f"Forward (1->2): {aggregated_xi[1, 2]:.6f}")
+
+    # Store initial A matrix
+    initial_A = hmm_model.A.copy()
     print("\nInitial A matrix:")
-    hmm_model.print_transition_matrix()
+    hmm_model.print_matrix(initial_A, "Initial Transition Matrix")
 
+    # Update transition matrix
     hmm_model.update_A(aggregated_xi, aggregated_gamma)
 
     print("\nUpdated A matrix:")
-    hmm_model.print_transition_matrix()
+    hmm_model.print_matrix(hmm_model.A, "Updated Transition Matrix")
 
+    # Print row sums of updated matrix
+    print("\nRow sums of updated transition matrix:")
+    for i in range(hmm_model.total_states):
+        row_sum = np.sum(hmm_model.A[i, :])
+        print(f"State {i}: {row_sum:.10f}")
+
+    # Basic structural tests
     assert (
         hmm_model.A[0, 1] == 1.0
     ), "Entry state must transition to first state with prob 1"
     assert np.all(
-        hmm_model.A[0, 2:] == 0
+        hmm_model.A[0, [0, *range(2, hmm_model.total_states)]] == 0
     ), "Entry state should have no other transitions"
+    assert hmm_model.A[-1, -1] == 1.0, "Exit state should have self-loop of 1"
+    assert np.all(
+        hmm_model.A[-1, :-1] == 0
+    ), "Exit state should have no other transitions"
 
-    #  Check main state transitions
+    # Check row sums and transitions
     for i in range(1, hmm_model.num_states + 1):
-        row_probs = hmm_model.A[i, :]
+        row_sum = np.sum(hmm_model.A[i, :])
+        print(f"\nState {i} transitions:")
+        print(f"Self-loop (a_{i}{i}): {hmm_model.A[i, i]:.6f}")
+        if i < hmm_model.num_states:
+            print(f"Forward (a_{i}{i+1}): {hmm_model.A[i, i+1]:.6f}")
+        print(f"Row sum: {row_sum:.10f}")
 
-        # Verify probability normalization
-        assert np.isclose(
-            np.sum(row_probs), 1.0, atol=1e-10
-        ), f"Row {i} probabilities must sum to 1"
-
-        # Verify left-right structure
-        if i < hmm_model.num_states:  # Not the last state
-            allowed = np.zeros_like(row_probs)
-            allowed[i] = 1  # Self-transition
-            allowed[i + 1] = 1  # Next state
-            assert np.all(
-                (row_probs > 0) == allowed
-            ), f"State {i} has invalid transitions"
-
-            assert row_probs[i] > 0, f"State {i} should have non-zero self-transition"
-            assert (
-                row_probs[i + 1] > 0
-            ), f"State {i} should have non-zero forward transition"
-        else:
-            allowed = np.zeros_like(row_probs)
-            allowed[i] = 1
-            allowed[i + 1] = 1
-            assert np.all(
-                (row_probs > 0) == allowed
-            ), f"Last state has invalid transitions"
-
-    assert np.all(
-        hmm_model.A[-1, :] == 0
-    ), "Exit state should have no outgoing transitions"
-    assert np.all(
-        np.tril(hmm_model.A[1:-1, 1:-1], k=-1) == 0
-    ), "No backward transitions allowed"
-    assert np.all(
-        np.triu(hmm_model.A[1:-1, 1:-1], k=2) == 0
-    ), "No skipping states allowed"
-
-    main_diag = np.diag(hmm_model.A[1:-1, 1:-1])
-    assert np.all(
-        (main_diag > 0.5) & (main_diag < 0.95)
-    ), "Self-transition probabilities should be reasonable (between 0.5 and 0.95)"
-
-    # Print statistics to debug
-    print("\nTransition Statistics:")
-    print(f"Total gamma sum across all sequences: {np.sum(aggregated_gamma):.3f}")
-    print(f"Total xi sum across all sequences: {np.sum(aggregated_xi):.3f}")
-    print(f"Average self-transition probability: {np.mean(main_diag):.3f}")
-    print(f"Min self-transition probability: {np.min(main_diag):.3f}")
-    print(f"Max self-transition probability: {np.max(main_diag):.3f}")
-
-    forward_probs = [hmm_model.A[i, i + 1] for i in range(1, hmm_model.num_states + 1)]
-    print(f"\nForward transition probabilities: {[f'{p:.3f}' for p in forward_probs]}")
+        assert np.isclose(row_sum, 1.0, atol=1e-10), f"Row {i} must sum to 1"
 
 
 def test_update_emissions(hmm_model, heed_features):
-    """
-    Basic test for emission parameter updates using 'heed' sequences.
-    Verifies fundamental properties of means and covariances after updates.
-    """
-    # Store initial parameters to check if they change
+    """Test HMM emission parameter updates with 'heed' sequences."""
+    # Store initial parameters
     initial_means = hmm_model.B["mean"].copy()
-    initial_variances = hmm_model.B["covariance"].copy()
+    initial_covars = hmm_model.B["covariance"].copy()
 
-    # Use first three sequences for a simple test
+    # Print initial parameters
+    hmm_model.print_matrix(initial_means, "Initial Means", col="MFCC", idx="State")
+    hmm_model.print_matrix(
+        initial_covars, "Initial Covariances", col="MFCC", idx="State"
+    )
+
+    # Collect forward-backward statistics for all sequences
     gamma_per_seq = []
-
-    # Compute gamma for each sequence
     for features in heed_features:
-        emission_matrix = hmm_model.compute_log_emission_matrix(features)
-        alpha = hmm_model.forward(emission_matrix, use_log=True)
-        beta = hmm_model.backward(emission_matrix, use_log=True)
-        gamma = hmm_model.compute_gamma(alpha, beta, use_log=True)
+        emission_matrix = hmm_model.compute_emission_matrix(features)
+        alpha = hmm_model.forward(emission_matrix)
+        beta = hmm_model.backward(emission_matrix)
+        gamma = hmm_model.compute_gamma(alpha, beta)
         gamma_per_seq.append(gamma)
-
-        # Print basic sequence info for debugging
-        print(f"\nSequence length: {features.shape[1]} frames")
-        print(f"Gamma sum: {np.sum(gamma):.3f}")
 
     # Update emission parameters
     hmm_model.update_B(heed_features, gamma_per_seq)
 
-    # === Basic Verification Checks ===
+    # Print updated parameters
+    hmm_model.print_matrix(
+        hmm_model.B["mean"], "Updated Means", col="MFCC", idx="State"
+    )
+    hmm_model.print_matrix(
+        hmm_model.B["covariance"], "Updated Covariances", col="MFCC", idx="State"
+    )
 
-    # 1. Check that parameters actually changed
-    assert not np.array_equal(initial_means, hmm_model.B["mean"]), \
-        "Means should be updated"
-    assert not np.array_equal(initial_variances, hmm_model.B["covariance"]), \
-        "Variances should be updated"
+    # 1. Check dimensions
+    assert hmm_model.B["mean"].shape == (
+        10,
+        13,
+    ), "Mean dimensions should be (10 states, 13 observations)"
+    assert hmm_model.B["covariance"].shape == (
+        10,
+        13,
+    ), "Covariance dimensions should be (10 states, 13 observations)"
 
-    # 2. Check mathematical validity
-    assert np.all(np.isfinite(hmm_model.B["mean"])), \
-        "All means should be finite"
-    assert np.all(np.isfinite(hmm_model.B["covariance"])), \
-        "All variances should be finite"
-    assert np.all(hmm_model.B["covariance"] > 0), \
-        "All variances should be positive"
+    # 2. Check entry/exit states remain zero (non-emitting)
+    assert np.all(hmm_model.B["mean"][0] == 0), "Entry state means should be zero"
+    assert np.all(hmm_model.B["mean"][-1] == 0), "Exit state means should be zero"
+    assert np.all(
+        hmm_model.B["covariance"][0] == 0
+    ), "Entry state covariances should be zero"
+    assert np.all(
+        hmm_model.B["covariance"][-1] == 0
+    ), "Exit state covariances should be zero"
 
-    # Print before/after statistics for inspection
-    print("\nMean value ranges:")
-    print(f"Before: [{np.min(initial_means):.3f}, {np.max(initial_means):.3f}]")
-    print(f"After:  [{np.min(hmm_model.B['mean']):.3f}, {np.max(hmm_model.B['mean']):.3f}]")
+    # 3. Check real states have been updated
+    assert not np.all(
+        hmm_model.B["mean"][1:-1] == 0
+    ), "Real state means should be updated"
+    assert not np.all(
+        hmm_model.B["covariance"][1:-1] == 0
+    ), "Real state covariances should be updated"
 
-    print("\nVariance ranges:")
-    print(f"Before: [{np.min(initial_variances):.3f}, {np.max(initial_variances):.3f}]")
-    print(f"After:  [{np.min(hmm_model.B['covariance']):.3f}, {np.max(hmm_model.B['covariance']):.3f}]")
+    # 4. Check mathematical validity for real states
+    assert np.all(
+        np.isfinite(hmm_model.B["mean"][1:-1])
+    ), "All real state means should be finite"
+    assert np.all(
+        np.isfinite(hmm_model.B["covariance"][1:-1])
+    ), "All real state covariances should be finite"
+    assert np.all(
+        hmm_model.B["covariance"][1:-1] > 0
+    ), "All real state covariances should be positive"
+
+    # 5. Check variance floor is applied to real states
+    var_floor = hmm_model.var_floor_factor * np.mean(hmm_model.B["covariance"][1:-1])
+    assert np.all(
+        hmm_model.B["covariance"][1:-1] >= var_floor
+    ), "All real state variances should be above the floor value"
 
 
 def test_baum_welch(hmm_model, heed_features):

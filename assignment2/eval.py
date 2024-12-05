@@ -106,7 +106,9 @@ def eval_hmm(
 
 if __name__ == "__main__":
     print("\nEvaluating development set:")
-    dev_results = eval_hmm("hmmlearn", "feature_set", model_iter=5)
+    custom_dev_results = eval_hmm("custom", "feature_set", model_iter=15)
+    hmmlearn_dev_results = eval_hmm("hmmlearn", "feature_set", model_iter=15)
 
     print("\nEvaluating test set:")
-    test_results = eval_hmm("hmmlearn", "eval_feature_set", model_iter=5)
+    custom_test_results = eval_hmm("hmmlearn", "eval_feature_set", model_iter=15)
+    hmmlearn_test_results = eval_hmm("custom", "eval_feature_set", model_iter=15)

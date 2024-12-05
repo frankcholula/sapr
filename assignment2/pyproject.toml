@@ -5,6 +5,7 @@ description = "isolated word recognition"
 authors = ["frankcholula <lu.phrank@gmail.com>"]
 license = "GPL-3.0-or-later"
 readme = "README.md"
+package-mode = false
 
 [tool.poetry.dependencies]
 python = "^3.9"
@@ -14,6 +15,7 @@ matplotlib = "^3.9.2"
 pandas = "^2.2.3"
 pytest = "^8.3.3"
 hmmlearn = "^0.3.3"
+seaborn = "^0.13.2"
 
 
 [build-system]

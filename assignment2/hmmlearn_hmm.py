@@ -13,7 +13,8 @@ class HMMLearnModel:
         self,
         num_states: int = 8,
         model_name: str = None,
-        n_iter: int = 10,
+        n_iter: int = 15,
+        min_covar: float = 0.01,
     ):
         self.model_name = model_name
         self.num_states = num_states
@@ -29,7 +30,7 @@ class HMMLearnModel:
             n_iter=n_iter,
             params="stmc",
             implementation="log",
-            min_covar=0.01,
+            min_covar=min_covar,
             init_params="",
             # verbose=True,
         )
@@ -105,9 +106,3 @@ class HMMLearnModel:
             return self.model, log_likelihood
         except Exception as e:
             logging.error(f"Error occurred while training {self.model_name} HMM: {e}")
-
-
-if __name__ == "__main__":
-    myhmm = HMMLearnModel(8, model_name="heed")
-    myhmm.fit(load_mfccs_by_word("feature_set", "heed"))
-    myhmm.plot_training_progress(myhmm.model.monitor_.history)

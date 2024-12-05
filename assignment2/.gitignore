@@ -5,3 +5,4 @@
 
 # trained models
 trained_models/hmmlearn/*.pkl
+trained_models/custom/*.pkl

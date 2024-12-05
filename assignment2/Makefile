@@ -10,19 +10,7 @@ test:
 
 .PHONY: train
 train:
-	@python train_hmm.py
-
-.PHONY: clean
-clean:
-	@rm -rf feature_set
-	@rm -rf eval_feature_set
-	@rm -rf trained_models/hmmlearn
-	@rm -rf trained_models/custom
-
-.PHONY: clean_training
-clean_training:
-	@rm -rf trained_models/hmmlearn
-	@rm -rf trained_models/custom
+	@python train.py
 
 .PHONY: decode
 decode:
@@ -30,4 +18,17 @@ decode:
 
 .PHONY: eval
 eval:
-	@python eval_hmm.py
+	@python eval.py
+
+.PHONY: clean
+clean:
+	@rm -rf feature_set
+	@rm -rf eval_feature_set
+	@rm -rf trained_models/hmmlearn
+	@rm -rf trained_models/custom
+	@rm -rf __pycache__
+
+.PHONY: clean_training
+clean_training:
+	@rm -rf trained_models/hmmlearn
+	@rm -rf trained_models/custom

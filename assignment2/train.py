@@ -2,7 +2,6 @@ import logging
 import numpy as np
 import pickle
 import pandas as pd
-import os
 from pathlib import Path
 from custom_hmm import HMM
 from hmmlearn_hmm import HMMLearnModel
@@ -14,7 +13,7 @@ logging.basicConfig(level=logging.INFO)
 logging.getLogger("matplotlib").setLevel(logging.WARNING)
 
 
-def plot_training_progress(all_likelihoods: Dict[str, List[float]]) -> None:
+def plot_training_progress(all_likelihoods: Dict[str, List[float]], implementation: str) -> None:
     num_models = len(all_likelihoods)
     n_cols = 4
     n_rows = (num_models + n_cols - 1) // n_cols
@@ -45,7 +44,7 @@ def plot_training_progress(all_likelihoods: Dict[str, List[float]]) -> None:
     # Save the training progress plot
     figures_dir = Path("figures")
     figures_dir.mkdir(exist_ok=True)
-    plt.savefig(figures_dir / "training_progress.png")
+    plt.savefig(figures_dir / f"training_progress_{implementation}.png")
     plt.close()
 
 
@@ -84,6 +83,8 @@ def train_hmm(
     num_states: int = 8,
     num_features: int = 13,
     n_iter: int = 15,
+    min_covar: float = 0.01,
+    var_floor_factor: float = 0.001
 ) -> Dict[str, Union[HMM, HMMLearnModel]]:
     vocabs = [
         "heed", "hid", "head", "had", "hard", "hud", 
@@ -107,11 +108,11 @@ def train_hmm(
         model_path = impl_dir / f"{word}_{implementation}_{n_iter}.pkl"
 
         if implementation == "custom":
-            hmm = HMM(num_states, num_features, feature_set, model_name=word)
+            hmm = HMM(num_states, num_features, feature_set, model_name=word, var_floor_factor=var_floor_factor)
             log_likelihoods = hmm.baum_welch(features[word], n_iter)
             trained_model = hmm
         elif implementation == "hmmlearn":
-            hmm = HMMLearnModel(num_states=num_states, model_name=word, n_iter=n_iter)
+            hmm = HMMLearnModel(num_states=num_states, model_name=word, n_iter=n_iter, min_covar=min_covar)
             trained_model, _ = hmm.fit(features[word])
             log_likelihoods = hmm.model.monitor_.history
 
@@ -119,10 +120,23 @@ def train_hmm(
         save_model(trained_model, model_path)
         hmms[word] = hmm
 
-    plot_training_progress(training_histories)
+    plot_training_progress(training_histories, implementation)
     return hmms
 
 
 if __name__ == "__main__":
     print("\nTraining with `hmmlearn` implementation:")
-    train_hmm("hmmlearn", num_states=8, num_features=13, n_iter=7)
+    num_states = 8
+    num_features = 13
+    n_iter = 15
+    min_covar = 0.01
+    print(f"Number of states: {num_states} | Number of features: {num_features}" f" | Number of iterations: {n_iter} | Minimum covariance: {min_covar}")
+    train_hmm("hmmlearn", num_states, num_features, n_iter, min_covar)
+
+    print("\nTraining with `custom` implementation:")
+    num_states = 8
+    num_features = 13
+    n_iter = 15
+    var_floor_factor = 0.01
+    print(f"Number of states: {num_states} | Number of features: {num_features}" f" | Number of iterations: {n_iter} | Variance floor factor: {var_floor_factor}")
+    train_hmm("custom", num_states, num_features, n_iter, var_floor_factor)
