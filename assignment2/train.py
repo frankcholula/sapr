@@ -135,6 +135,6 @@ if __name__ == "__main__":
     print("\nTraining with `custom` implementation:")
     num_states = 8
     num_features = 13
-    n_iter = 15
+    n_iter = 3
     print(f"Number of states: {num_states} | Number of features: {num_features}" f" | Number of iterations: {n_iter}")
     train_hmm("custom", num_states, num_features, n_iter)

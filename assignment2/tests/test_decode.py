@@ -18,9 +18,11 @@ def hmm_model(feature_set):
 def heed_features():
     return load_mfccs_by_word("feature_set", "heed")
 
+
 @pytest.fixture
 def hood_features():
     return load_mfccs_by_word("feature_set", "hood")
+
 
 @pytest.fixture
 def trained_heed_model(hmm_model, heed_features):
@@ -32,4 +34,6 @@ def test_viterbi_decode(trained_heed_model, heed_features, hood_features):
     path, log_prob = trained_heed_model.decode(heed_features[0])
     print(f"Viterbi Path: {path}")
     print(f"Log Probability: {log_prob}")
-    assert len(path) == heed_features[0].shape[1], "Path should have same length as features"
+    assert (
+        len(path) == heed_features[0].shape[1]
+    ), "Path should have same length as features"

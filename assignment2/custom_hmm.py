@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import logging
+from typing import List, Tuple
 
 logging.basicConfig(level=logging.INFO)
 
@@ -12,7 +13,7 @@ class HMM:
         num_obs: int,
         feature_set: list[np.ndarray] = None,
         model_name: str = None,
-        var_floor_factor: float = 0.01,
+        var_floor_factor: float = 0.1,
     ):
         assert num_states > 0, "Number of states must be greater than 0."
         assert num_obs > 0, "Number of observations must be greater than 0."
@@ -423,56 +424,56 @@ class HMM:
         print("Training complete!")
         return log_likelihood_history
 
-    def decode(self, features: np.ndarray) -> np.ndarray:
+    def decode(self, features: np.ndarray) -> Tuple[List[int], float]:
         """
         Decode the most likely state sequence using the Viterbi algorithm.
         """
-        T = features.shape[1]
-        N = self.total_states
-        emission_matrix = self.compute_emission_matrix(features)
-        V = np.full((T, N), -np.inf)
-        bp = np.zeros((T, N), dtype=int)
-
-        # Initialize t=0
-        V[0, 0] = 0  # Start in entry state
-        V[0, 1] = np.log(self.A[0, 1]) + emission_matrix[0, 1]  # First real state
-
-        # Forward recursion
+        T = features.shape[0]
+        emission_matrix = self.compute_emission_matrix(features.T)
+        
+        V = np.full((T, self.total_states), -np.inf)
+        backpointer = np.zeros((T, self.total_states), dtype=int)
+        
+        V[0, 0] = 0
+        V[0, 1] = np.log(self.A[0, 1]) + emission_matrix[0, 1]
+        
         for t in range(1, T):
-            V[t, 0] = -np.inf
-
-            for j in range(1, self.num_states + 1):
-                from_prev = -np.inf
-                if j > 1:
-                    from_prev = V[t - 1, j - 1] + np.log(self.A[j - 1, j])
-                self_loop = V[t - 1, j] + np.log(self.A[j, j])
-
-                if from_prev > self_loop:
-                    V[t, j] = from_prev + emission_matrix[t, j]
-                    bp[t, j] = j - 1
+            for j in range(1, self.total_states):
+                if j == 1:
+                    prev_states = [1]
+                    if t == 1:
+                        prev_states.append(0)
+                elif j == self.total_states - 1:
+                    if t >= self.num_states:
+                        prev_states = [j-1, j]
+                    else:
+                        continue
                 else:
-                    V[t, j] = self_loop + emission_matrix[t, j]
-                    bp[t, j] = j
-
-            # Handle exit state if we've gone through enough states
-            if t >= self.num_states:
-                from_last = V[t - 1, self.num_states] + np.log(
-                    self.A[self.num_states, -1]
-                )
-                self_loop = V[t - 1, -1] + np.log(self.A[-1, -1])
-
-                if from_last > self_loop:
-                    V[t, -1] = from_last
-                    bp[t, -1] = self.num_states
-                else:
-                    V[t, -1] = self_loop
-                    bp[t, -1] = N - 1
-
+                    prev_states = [j-1, j]
+                
+                best_score = -np.inf
+                best_prev = None
+                
+                for i in prev_states:
+                    score = V[t-1, i] + np.log(self.A[i, j])
+                    if score > best_score:
+                        best_score = score
+                        best_prev = i
+                
+                if best_prev is not None:
+                    if j != 0 and j != self.total_states - 1:
+                        V[t, j] = best_score + emission_matrix[t, j]
+                    else:
+                        V[t, j] = best_score
+                    backpointer[t, j] = best_prev
+        
         path = []
-        curr_state = N - 1  # Start from exit state
-
-        for t in range(T - 1, -1, -1):
+        curr_state = self.total_states - 1
+        
+        for t in range(T-1, -1, -1):
             path.append(curr_state)
-            curr_state = bp[t, curr_state]
-
-        return path[::-1], V[T - 1, -1]
+            curr_state = backpointer[t, curr_state]
+        
+        path.reverse()
+        
+        return float(V[T-1, -1]), path
