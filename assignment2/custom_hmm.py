@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import logging
+from typing import List, Tuple
 
 logging.basicConfig(level=logging.INFO)
 
@@ -103,7 +104,7 @@ class HMM:
         print(f"\nM (observation dim): {self.num_obs}")
         print(f"\nπ (initial state distribution): {self.pi.round(3)}")
         print("\nA (transition matrix):")
-        self.print_transition_matrix()
+        self.print_matrix(self.A, "Transition Matrix", col="To", idx="From")
         print("\nB (emission parameters):")
         self.print_emission_parameters()
 
@@ -158,7 +159,8 @@ class HMM:
                 self_loop = alpha[t - 1, j] + np.log(self.A[j, j])
                 alpha[t, j] = np.logaddexp(from_prev, self_loop) + emission_matrix[t, j]
 
-            alpha[t, -1] = alpha[t - 1, -2] + np.log(self.A[-2, -1])
+            if self.A[-2, -1] > 0:  # Only if transition is allowed
+                alpha[t, -1] = alpha[t - 1, -2] + np.log(self.A[-2, -1] + 1e-300)
 
         return alpha
 
@@ -422,3 +424,57 @@ class HMM:
 
         print("Training complete!")
         return log_likelihood_history
+
+    def decode(self, features: np.ndarray) -> Tuple[List[int], float]:
+        """
+        Decode the most likely state sequence using the Viterbi algorithm.
+        """
+        T = features.shape[0]
+        emission_matrix = self.compute_emission_matrix(features)
+        
+        V = np.full((T, self.total_states), -np.inf)
+        backpointer = np.zeros((T, self.total_states), dtype=int)
+        
+        V[0, 0] = 0
+        V[0, 1] = np.log(self.A[0, 1]) + emission_matrix[0, 1]
+        
+        for t in range(1, T):
+            for j in range(1, self.total_states):
+                if j == 1:
+                    prev_states = [1]
+                    if t == 1:
+                        prev_states.append(0)
+                elif j == self.total_states - 1:
+                    if t >= self.num_states:
+                        prev_states = [j-1, j]
+                    else:
+                        continue
+                else:
+                    prev_states = [j-1, j]
+                
+                best_score = -np.inf
+                best_prev = None
+                
+                for i in prev_states:
+                    score = V[t-1, i] + np.log(self.A[i, j])
+                    if score > best_score:
+                        best_score = score
+                        best_prev = i
+                
+                if best_prev is not None:
+                    if j != 0 and j != self.total_states - 1:
+                        V[t, j] = best_score + emission_matrix[t, j]
+                    else:
+                        V[t, j] = best_score
+                    backpointer[t, j] = best_prev
+        
+        path = []
+        curr_state = self.total_states - 1
+        
+        for t in range(T-1, -1, -1):
+            path.append(curr_state)
+            curr_state = backpointer[t, curr_state]
+        
+        path.reverse()
+        
+        return float(V[T-1, -1]), path
