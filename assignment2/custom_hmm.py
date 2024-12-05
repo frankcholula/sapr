@@ -13,7 +13,7 @@ class HMM:
         num_obs: int,
         feature_set: list[np.ndarray] = None,
         model_name: str = None,
-        var_floor_factor: float = 0.1,
+        var_floor_factor: float = 0.001,
     ):
         assert num_states > 0, "Number of states must be greater than 0."
         assert num_obs > 0, "Number of observations must be greater than 0."

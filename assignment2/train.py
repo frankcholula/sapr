@@ -84,6 +84,7 @@ def train_hmm(
     num_features: int = 13,
     n_iter: int = 15,
     min_covar: float = 0.01,
+    var_floor_factor: float = 0.001
 ) -> Dict[str, Union[HMM, HMMLearnModel]]:
     vocabs = [
         "heed", "hid", "head", "had", "hard", "hud", 
@@ -107,7 +108,7 @@ def train_hmm(
         model_path = impl_dir / f"{word}_{implementation}_{n_iter}.pkl"
 
         if implementation == "custom":
-            hmm = HMM(num_states, num_features, feature_set, model_name=word)
+            hmm = HMM(num_states, num_features, feature_set, model_name=word, var_floor_factor=var_floor_factor)
             log_likelihoods = hmm.baum_welch(features[word], n_iter)
             trained_model = hmm
         elif implementation == "hmmlearn":
@@ -124,17 +125,18 @@ def train_hmm(
 
 
 if __name__ == "__main__":
-    # print("\nTraining with `hmmlearn` implementation:")
-    # num_states = 8
-    # num_features = 13
-    # n_iter = 15
-    # min_covar = 0.01
-    # print(f"Number of states: {num_states} | Number of features: {num_features}" f" | Number of iterations: {n_iter} | Minimum covariance: {min_covar}")
-    # train_hmm("hmmlearn", num_states, num_features, n_iter, min_covar)
+    print("\nTraining with `hmmlearn` implementation:")
+    num_states = 8
+    num_features = 13
+    n_iter = 15
+    min_covar = 0.01
+    print(f"Number of states: {num_states} | Number of features: {num_features}" f" | Number of iterations: {n_iter} | Minimum covariance: {min_covar}")
+    train_hmm("hmmlearn", num_states, num_features, n_iter, min_covar)
 
     print("\nTraining with `custom` implementation:")
     num_states = 8
     num_features = 13
-    n_iter = 3
-    print(f"Number of states: {num_states} | Number of features: {num_features}" f" | Number of iterations: {n_iter}")
-    train_hmm("custom", num_states, num_features, n_iter)
+    n_iter = 15
+    var_floor_factor = 0.001
+    print(f"Number of states: {num_states} | Number of features: {num_features}" f" | Number of iterations: {n_iter} | Variance floor factor: {var_floor_factor}")
+    train_hmm("custom", num_states, num_features, n_iter, var_floor_factor)
