@@ -20,52 +20,6 @@ def heed_features():
     return load_mfccs_by_word("feature_set", "heed")
 
 
-# def test_xi_debug(hmm_model, feature_set):
-#     test_features = feature_set[0]
-#     emission_matrix = hmm_model.compute_emission_matrix(test_features)
-#     alpha = hmm_model.forward(emission_matrix)
-#     beta = hmm_model.backward(emission_matrix)
-#     gamma = hmm_model.compute_gamma(alpha, beta)
-
-#     # Let's look at components for a specific time t and state i
-#     t = 1  # second time step
-#     i = 1  # first real state
-#     j = 1  # self-transition
-
-#     log_likelihood = np.logaddexp.reduce(alpha[-1])
-
-#     print("\nXi calculation components for t=1, state 1->1:")
-#     print(f"alpha[t,i]: {alpha[t,i]}")
-#     print(f"beta[t+1,j]: {beta[t+1,j]}")
-#     print(f"A[i,j]: {hmm_model.A[i,j]}")
-#     print(f"emission[t+1,j]: {emission_matrix[t+1,j]}")
-#     print(f"log_likelihood: {log_likelihood}")
-
-#     # Calculate expected xi value
-#     xi_value = np.exp(
-#         alpha[t, i]
-#         + np.log(hmm_model.A[i, j])
-#         + emission_matrix[t + 1, j]
-#         + beta[t + 1, j]
-#         - log_likelihood
-#     )
-#     print(f"\nCalculated xi value: {xi_value}")
-
-#     xi = hmm_model.compute_xi(alpha, beta, emission_matrix)
-#     print(f"Actual xi value from method: {xi[t,i,j]}")
-
-#     # Print first few transitions for t=1
-#     print("\nXi values at t=1 for possible transitions:")
-#     pd.set_option("display.precision", 4)
-#     print(
-#         pd.DataFrame(
-#             xi[1],
-#             columns=[f"To_{i}" for i in range(hmm_model.total_states)],
-#             index=[f"From_{i}" for i in range(hmm_model.total_states)],
-#         )
-#     )
-
-
 def test_gamma_properties(hmm_model, feature_set):
     """Test if gamma probabilities have expected properties"""
     test_features = feature_set[0]
@@ -106,6 +60,52 @@ def test_gamma_properties(hmm_model, feature_set):
     for t in check_times:
         active = np.where(gamma[t] > 0.01)[0]
         print(f"t={t}: states {active} active")
+
+
+def test_xi_debug(hmm_model, feature_set):
+    test_features = feature_set[0]
+    emission_matrix = hmm_model.compute_emission_matrix(test_features)
+    alpha = hmm_model.forward(emission_matrix)
+    beta = hmm_model.backward(emission_matrix)
+    gamma = hmm_model.compute_gamma(alpha, beta)
+
+    # Let's look at components for a specific time t and state i
+    t = 1  # second time step
+    i = 1  # first real state
+    j = 1  # self-transition
+
+    log_likelihood = np.logaddexp.reduce(alpha[-1])
+
+    print("\nXi calculation components for t=1, state 1->1:")
+    print(f"alpha[t,i]: {alpha[t,i]}")
+    print(f"beta[t+1,j]: {beta[t+1,j]}")
+    print(f"A[i,j]: {hmm_model.A[i,j]}")
+    print(f"emission[t+1,j]: {emission_matrix[t+1,j]}")
+    print(f"log_likelihood: {log_likelihood}")
+
+    # Calculate expected xi value
+    xi_value = np.exp(
+        alpha[t, i]
+        + np.log(hmm_model.A[i, j])
+        + emission_matrix[t + 1, j]
+        + beta[t + 1, j]
+        - log_likelihood
+    )
+    print(f"\nCalculated xi value: {xi_value}")
+
+    xi = hmm_model.compute_xi(alpha, beta, emission_matrix)
+    print(f"Actual xi value from method: {xi[t,i,j]}")
+
+    # Print first few transitions for t=1
+    print("\nXi values at t=1 for possible transitions:")
+    pd.set_option("display.precision", 4)
+    print(
+        pd.DataFrame(
+            xi[1],
+            columns=[f"To_{i}" for i in range(hmm_model.total_states)],
+            index=[f"From_{i}" for i in range(hmm_model.total_states)],
+        )
+    )
 
 
 # def test_gamma_xi_probabilities(hmm_model, feature_set):
