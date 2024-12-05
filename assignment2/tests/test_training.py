@@ -203,83 +203,76 @@ def test_update_transitions(hmm_model, heed_features):
         assert np.isclose(row_sum, 1.0, atol=1e-10), f"Row {i} must sum to 1"
 
 
-# def test_update_emissions(hmm_model, heed_features):
-#     """Test HMM emission parameter updates with 'heed' sequences."""
-#     # Store initial parameters
-#     initial_means = hmm_model.B["mean"].copy()
-#     initial_covars = hmm_model.B["covariance"].copy()
+def test_update_emissions(hmm_model, heed_features):
+    """Test HMM emission parameter updates with 'heed' sequences."""
+    # Store initial parameters
+    initial_means = hmm_model.B["mean"].copy()
+    initial_covars = hmm_model.B["covariance"].copy()
 
-#     # Print initial parameters
-#     hmm_model.print_matrix(initial_means, "Initial Means", col="MFCC", idx="State")
-#     hmm_model.print_matrix(
-#         initial_covars, "Initial Covariances", col="MFCC", idx="State"
-#     )
+    # Print initial parameters
+    hmm_model.print_matrix(initial_means, "Initial Means", col="MFCC", idx="State")
+    
+    print("\nInitial Covariance Matrices:")
+    for state in range(1, hmm_model.total_states-1):  # Print real states only
+        print(f"\nState {state} Covariance:")
+        print(pd.DataFrame(
+            initial_covars[state],
+            columns=[f'MFCC_{i+1}' for i in range(13)],
+            index=[f'MFCC_{i+1}' for i in range(13)]
+        ))
 
-#     # Collect forward-backward statistics for all sequences
-#     gamma_per_seq = []
-#     for features in heed_features:
-#         emission_matrix = hmm_model.compute_emission_matrix(features)
-#         alpha, scale_factors = hmm_model.forward(emission_matrix)
-#         beta = hmm_model.backward(emission_matrix, scale_factors)
-#         gamma = hmm_model.compute_gamma(alpha, beta)
-#         gamma_per_seq.append(gamma)
+    # Collect forward-backward statistics and update
+    gamma_per_seq = []
+    for features in heed_features:
+        emission_matrix = hmm_model.compute_emission_matrix(features)
+        alpha, scale_factors = hmm_model.forward(emission_matrix)
+        beta = hmm_model.backward(emission_matrix, scale_factors)
+        gamma = hmm_model.compute_gamma(alpha, beta)
+        gamma_per_seq.append(gamma)
 
-#     # Update emission parameters
-#     hmm_model.update_B(heed_features, gamma_per_seq)
+    hmm_model.update_B(heed_features, gamma_per_seq)
 
-#     # Print updated parameters
-#     hmm_model.print_matrix(
-#         hmm_model.B["mean"], "Updated Means", col="MFCC", idx="State"
-#     )
-#     hmm_model.print_matrix(
-#         hmm_model.B["covariance"], "Updated Covariances", col="MFCC", idx="State"
-#     )
+    # Print updated parameters
+    hmm_model.print_matrix(hmm_model.B["mean"], "Updated Means", col="MFCC", idx="State")
+    
+    print("\nUpdated Covariance Matrices:")
+    for state in range(1, hmm_model.total_states-1):
+        print(f"\nState {state} Covariance:")
+        print(pd.DataFrame(
+            hmm_model.B["covariance"][state],
+            columns=[f'MFCC_{i+1}' for i in range(13)],
+            index=[f'MFCC_{i+1}' for i in range(13)]
+        ))
 
-#     # 1. Check dimensions
-#     assert hmm_model.B["mean"].shape == (
-#         10,
-#         13,
-#     ), "Mean dimensions should be (10 states, 13 observations)"
-#     assert hmm_model.B["covariance"].shape == (
-#         10,
-#         13,
-#         13
-#     ), "Covariance dimensions should be (10 states, 13 observations by 13 observations)"
+    # Dimension checks
+    assert hmm_model.B["mean"].shape == (10, 13), "Mean shape incorrect"
+    assert hmm_model.B["covariance"].shape == (10, 13, 13), "Covariance shape incorrect"
 
-#     # 2. Check entry/exit states remain zero (non-emitting)
-#     assert np.all(hmm_model.B["mean"][0] == 0), "Entry state means should be zero"
-#     assert np.all(hmm_model.B["mean"][-1] == 0), "Exit state means should be zero"
-#     assert np.all(
-#         hmm_model.B["covariance"][0] == 0
-#     ), "Entry state covariances should be zero"
-#     assert np.all(
-#         hmm_model.B["covariance"][-1] == 0
-#     ), "Exit state covariances should be zero"
+    # Entry/exit state checks
+    assert np.all(hmm_model.B["mean"][0] == 0), "Entry state means should be zero"
+    assert np.all(hmm_model.B["mean"][-1] == 0), "Exit state means should be zero"
+    assert np.all(hmm_model.B["covariance"][0] == 0), "Entry state covariances should be zero"
+    assert np.all(hmm_model.B["covariance"][-1] == 0), "Exit state covariances should be zero"
 
-#     # 3. Check real states have been updated
-#     assert not np.all(
-#         hmm_model.B["mean"][1:-1] == 0
-#     ), "Real state means should be updated"
-#     assert not np.all(
-#         hmm_model.B["covariance"][1:-1] == 0
-#     ), "Real state covariances should be updated"
+    # Real state checks
+    for j in range(1, hmm_model.total_states-1):
+        # Check symmetry
+        assert np.allclose(
+            hmm_model.B["covariance"][j],
+            hmm_model.B["covariance"][j].T
+        ), f"Covariance matrix for state {j} not symmetric"
+        
+        # Check positive definiteness
+        eigenvals = np.linalg.eigvals(hmm_model.B["covariance"][j])
+        assert np.all(eigenvals > -1e-10), f"Covariance matrix for state {j} not positive definite"
+        
+        # Check diagonal elements above floor
+        var_floor = hmm_model.var_floor_factor * np.mean(np.diag(hmm_model.global_covariance))
+        diag_elements = np.diag(hmm_model.B["covariance"][j])
+        assert np.all(diag_elements >= var_floor), f"State {j} has variances below floor"
 
-#     # 4. Check mathematical validity for real states
-#     assert np.all(
-#         np.isfinite(hmm_model.B["mean"][1:-1])
-#     ), "All real state means should be finite"
-#     assert np.all(
-#         np.isfinite(hmm_model.B["covariance"][1:-1])
-#     ), "All real state covariances should be finite"
-#     assert np.all(
-#         hmm_model.B["covariance"][1:-1] > 0
-#     ), "All real state covariances should be positive"
-
-#     # 5. Check variance floor is applied to real states
-#     var_floor = hmm_model.var_floor_factor * np.mean(hmm_model.B["covariance"][1:-1])
-#     assert np.all(
-#         hmm_model.B["covariance"][1:-1] >= var_floor
-#     ), "All real state variances should be above the floor value"
+    # Check means are finite
+    assert np.all(np.isfinite(hmm_model.B["mean"][1:-1])), "Non-finite values in means"
 
 
 # def test_baum_welch(hmm_model, heed_features):

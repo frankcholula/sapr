@@ -371,45 +371,41 @@ class HMM:
         # Exit state always self-loops
         self.A[-1, -1] = 1.0
 
-    # def update_B(
-    #     self, features_list: list[np.ndarray], gamma_per_seq: list[np.ndarray]
-    # ) -> None:
-    #     state_means = np.zeros((self.total_states, self.num_obs))
-    #     state_covars = np.zeros((self.total_states, self.num_obs, self.num_obs))
-    #     state_occupancy = np.zeros(self.total_states)
+    def update_B(self, features_list: list[np.ndarray], gamma_per_seq: list[np.ndarray]) -> None:
+        state_means = np.zeros((self.total_states, self.num_obs))
+        state_covars = np.zeros((self.total_states, self.num_obs, self.num_obs))
+        state_occupancy = np.zeros(self.total_states)
 
-    #     # Update means first
-    #     for features, gamma in zip(features_list, gamma_per_seq):
-    #         for j in range(1, self.total_states - 1):
-    #             state_means[j] += np.sum(gamma[:, j : j + 1] * features.T, axis=0)
-    #             state_occupancy[j] += np.sum(gamma[:, j])
+        # Update means first
+        for features, gamma in zip(features_list, gamma_per_seq):
+            for j in range(1, self.total_states - 1):
+                state_means[j] += np.sum(gamma[:, j:j+1] * features.T, axis=0)
+                state_occupancy[j] += np.sum(gamma[:, j])
 
-    #     for j in range(1, self.total_states - 1):
-    #         if state_occupancy[j] > 0:
-    #             state_means[j] /= state_occupancy[j]
+        for j in range(1, self.total_states - 1):
+            if state_occupancy[j] > 0:
+                state_means[j] /= state_occupancy[j]
 
-    #     # Update covariance matrices
-    #     for features, gamma in zip(features_list, gamma_per_seq):
-    #         for j in range(1, self.total_states - 1):
-    #             diff = features.T - state_means[j]
-    #             for t in range(features.shape[1]):
-    #                 state_covars[j] += gamma[t, j] * np.outer(diff[t], diff[t])
+        # Update covariance matrices
+        for features, gamma in zip(features_list, gamma_per_seq):
+            for j in range(1, self.total_states - 1):
+                diff = features.T - state_means[j]
+                for t in range(features.shape[1]):
+                    state_covars[j] += gamma[t, j] * np.outer(diff[t], diff[t])
 
-    #     # Normalize and apply variance floor
-    #     var_floor = self.var_floor_factor * np.mean(np.diagonal(self.global_covariance))
-    #     for j in range(1, self.total_states - 1):
-    #         if state_occupancy[j] > 0:
-    #             state_covars[j] /= state_occupancy[j]
-    #             # Ensure symmetry
-    #             state_covars[j] = (state_covars[j] + state_covars[j].T) / 2
-    #             # Apply floor to diagonal
-    #             diag_indices = np.diag_indices(self.num_obs)
-    #             state_covars[j][diag_indices] = np.maximum(
-    #                 state_covars[j][diag_indices], var_floor
-    #             )
+        # Normalize and apply variance floor
+        var_floor = self.var_floor_factor * np.mean(np.diagonal(self.global_covariance))
+        for j in range(1, self.total_states - 1):
+            if state_occupancy[j] > 0:
+                state_covars[j] /= state_occupancy[j]
+                # Ensure symmetry
+                state_covars[j] = (state_covars[j] + state_covars[j].T) / 2
+                # Apply floor to diagonal
+                diag_indices = np.diag_indices(self.num_obs)
+                state_covars[j][diag_indices] = np.maximum(state_covars[j][diag_indices], var_floor)
 
-    #     self.B["mean"] = state_means
-    #     self.B["covariance"] = state_covars
+        self.B["mean"] = state_means
+        self.B["covariance"] = state_covars
 
     # def baum_welch(
     #     self, features_list: list[np.ndarray], max_iter: int = 15, tol: float = 1e-4
