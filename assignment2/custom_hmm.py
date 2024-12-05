@@ -143,42 +143,34 @@ class HMM:
         )
         print(cov_df.round(precision))
 
-    def compute_emission_matrix(self, features: np.ndarray) -> np.ndarray:
+    def compute_emission_matrix(self, features):
         """
         Compute log emission probabilities for each state and time.
         Returns a TxN matrix where T is number of frames and N is number of states.
         """
         T = features.shape[1]
         log_emission_matrix = np.full((T, self.total_states), -np.inf)
-
+        
         # Skip entry (0) and exit (-1) states as they're non-emitting
         for j in range(1, self.total_states - 1):
+            # Center the data
             diff = features - self.B["mean"][j, :, np.newaxis]
-            try:
-                # Handle full covariance calculation
-                inv_cov = np.linalg.inv(self.B["covariance"][j])
-                sign, logdet = np.linalg.slogdet(self.B["covariance"][j])
-                assert (
-                    sign > 0
-                ), f"Non-positive definite covariance matrix for state {j}"
-
-                # Compute for all time steps at once using matrix operations
-                log_emission_matrix[:, j] = -0.5 * (
-                    self.num_obs * np.log(2 * np.pi)
-                    + logdet
-                    + np.sum(diff.T @ inv_cov @ diff, axis=1)
-                )
-            except np.linalg.LinAlgError:
-                logging.warning(
-                    f"Singular covariance matrix for state {j}, using diagonal approximation"
-                )
-                diag_cov = np.diag(np.diag(self.B["covariance"][j]))
-                log_emission_matrix[:, j] = -0.5 * np.sum(
-                    diff**2 / np.diag(diag_cov)[:, np.newaxis]
-                    + np.log(2 * np.pi * np.diag(diag_cov))[:, np.newaxis],
-                    axis=0,
-                )
-
+            
+            # Add small regularization to ensure positive definiteness
+            epsilon = 1e-6
+            cov = self.B["covariance"][j] + epsilon * np.eye(self.num_obs)
+            
+            # Compute inverse and log determinant
+            inv_cov = np.linalg.inv(cov)
+            sign, logdet = np.linalg.slogdet(cov)
+            
+            # Vectorized computation for all time steps
+            log_emission_matrix[:, j] = -0.5 * (
+                self.num_obs * np.log(2 * np.pi) 
+                + logdet
+                + np.sum(diff.T @ inv_cov @ diff, axis=1)
+            )
+        
         return log_emission_matrix
 
     def forward(self, emission_matrix: np.ndarray) -> tuple[np.ndarray, float]:
