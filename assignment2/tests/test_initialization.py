@@ -4,7 +4,7 @@ from custom_hmm import HMM
 from hmmlearn_hmm import HMMLearnModel
 from mfcc_extract import load_mfccs
 from train import pretty_print_matrix
-
+import pandas as pd
 
 @pytest.fixture
 def feature_set():
@@ -78,16 +78,39 @@ def test_initial_probabilities(hmm_model):
     assert np.all(hmm_model.pi[1:] == 0.0), "Other states should have probability 0.0"
 
 
-def print_debug_info(hmm_model):
-    """Print debug information about the model's initialization"""
-    print("\nGlobal Mean:", hmm_model.global_mean)
-    print("\nGlobal Covariance Diagonal:", np.diag(hmm_model.global_covariance))
-    print("\nFirst State Covariance Diagonal:", np.diag(hmm_model.B["covariance"][1]))
+def test_covariance_initialization_debug(hmm_model):
+    """Print and verify covariance matrices after initialization"""
+    pd.set_option('display.precision', 2)
+    pd.set_option('display.max_columns', 13)
+    pd.set_option('display.width', 180)
 
-    # Check if any off-diagonal elements are non-zero
-    off_diag_sum = np.sum(
-        np.abs(
-            hmm_model.global_covariance - np.diag(np.diag(hmm_model.global_covariance))
-        )
+    # Print global covariance
+    print("\nGlobal Covariance Matrix:")
+    global_cov_df = pd.DataFrame(
+        hmm_model.global_covariance,
+        index=[f'MFCC_{i+1}' for i in range(13)],
+        columns=[f'MFCC_{i+1}' for i in range(13)]
     )
+    print(global_cov_df)
+
+    # Print first state covariance
+    print("\nFirst State Covariance Matrix:")
+    state_cov_df = pd.DataFrame(
+        hmm_model.B["covariance"][1],
+        index=[f'MFCC_{i+1}' for i in range(13)],
+        columns=[f'MFCC_{i+1}' for i in range(13)]
+    )
+    print(state_cov_df)
+
+    # Print some verification stats
+    diag_values = np.diag(hmm_model.global_covariance)
+    print("\nDiagonal Elements Statistics:")
+    print(f"Min variance: {np.min(diag_values):.2e}")
+    print(f"Max variance: {np.max(diag_values):.2e}")
+    print(f"Mean variance: {np.mean(diag_values):.2e}")
+    print(f"Variance floor: {hmm_model.var_floor_factor * np.mean(diag_values):.2e}")
+
+    # Verify off-diagonal elements are zero
+    off_diag_mask = ~np.eye(13, dtype=bool)
+    off_diag_sum = np.sum(np.abs(hmm_model.global_covariance[off_diag_mask]))
     print(f"\nSum of absolute off-diagonal elements: {off_diag_sum:.2e}")
