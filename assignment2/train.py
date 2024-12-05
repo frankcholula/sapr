@@ -13,7 +13,7 @@ logging.basicConfig(level=logging.INFO)
 logging.getLogger("matplotlib").setLevel(logging.WARNING)
 
 
-def plot_training_progress(all_likelihoods: Dict[str, List[float]]) -> None:
+def plot_training_progress(all_likelihoods: Dict[str, List[float]], implementation: str) -> None:
     num_models = len(all_likelihoods)
     n_cols = 4
     n_rows = (num_models + n_cols - 1) // n_cols
@@ -44,7 +44,7 @@ def plot_training_progress(all_likelihoods: Dict[str, List[float]]) -> None:
     # Save the training progress plot
     figures_dir = Path("figures")
     figures_dir.mkdir(exist_ok=True)
-    plt.savefig(figures_dir / "training_progress.png")
+    plt.savefig(figures_dir / f"training_progress_{implementation}.png")
     plt.close()
 
 
@@ -120,7 +120,7 @@ def train_hmm(
         save_model(trained_model, model_path)
         hmms[word] = hmm
 
-    plot_training_progress(training_histories)
+    plot_training_progress(training_histories, implementation)
     return hmms
 
 
