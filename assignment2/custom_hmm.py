@@ -34,21 +34,35 @@ class HMM:
 
     def init_parameters(self, feature_set: list[np.ndarray]) -> None:
         self.global_mean = self.calculate_means(feature_set)
-        self.global_variance = self.calculate_variance(feature_set, self.global_mean)
+        self.global_covariance = self.calculate_covariance(
+            feature_set, self.global_mean
+        )
 
-        var_floor = self.var_floor_factor * np.mean(self.global_variance)
-        self.global_variance = np.maximum(self.global_variance, var_floor)
+        # Apply variance floor to diagonal elements
+        var_floor = self.var_floor_factor * np.mean(np.diag(self.global_covariance))
+        diag_indices = np.diag_indices_from(self.global_covariance)
+        self.global_covariance[diag_indices] = np.maximum(
+            self.global_covariance[diag_indices], var_floor
+        )
 
         self.A = self.initialize_transitions(feature_set, self.num_states)
 
         # Initialize B using global statistics
         means = np.tile(self.global_mean, (self.total_states, 1))
-        covars = np.tile(self.global_variance, (self.total_states, 1))
+
+        # Initialize covariance matrices for each state
+        covars = np.zeros((self.total_states, self.num_obs, self.num_obs))
+        for i in range(self.total_states):
+            covars[i] = self.global_covariance.copy()
 
         self.B = {"mean": means, "covariance": covars}
 
         assert self.B["mean"].shape == (self.total_states, self.num_obs)
-        assert self.B["covariance"].shape == (self.total_states, self.num_obs)
+        assert self.B["covariance"].shape == (
+            self.total_states,
+            self.num_obs,
+            self.num_obs,
+        )
 
     def calculate_means(self, feature_set: list[np.ndarray]) -> np.ndarray:
         """
@@ -73,6 +87,18 @@ class HMM:
             count += feature.shape[1]
         variance = ssd / count
         return variance
+
+    def calculate_covariance(
+        self, feature_set: list[np.ndarray], mean: np.ndarray
+    ) -> np.ndarray:
+        """Calculate full covariance matrix of MFCC features across all frames"""
+        covariance = np.zeros((self.num_obs, self.num_obs))
+        count = 0
+        for feature in feature_set:
+            centered = feature - mean[:, np.newaxis]
+            covariance += centered @ centered.T
+            count += feature.shape[1]
+        return covariance / count
 
     def initialize_transitions(
         self, feature_set: list[np.ndarray], num_states: int
@@ -431,13 +457,13 @@ class HMM:
         """
         T = features.shape[0]
         emission_matrix = self.compute_emission_matrix(features)
-        
+
         V = np.full((T, self.total_states), -np.inf)
         backpointer = np.zeros((T, self.total_states), dtype=int)
-        
+
         V[0, 0] = 0
         V[0, 1] = np.log(self.A[0, 1]) + emission_matrix[0, 1]
-        
+
         for t in range(1, T):
             for j in range(1, self.total_states):
                 if j == 1:
@@ -446,35 +472,35 @@ class HMM:
                         prev_states.append(0)
                 elif j == self.total_states - 1:
                     if t >= self.num_states:
-                        prev_states = [j-1, j]
+                        prev_states = [j - 1, j]
                     else:
                         continue
                 else:
-                    prev_states = [j-1, j]
-                
+                    prev_states = [j - 1, j]
+
                 best_score = -np.inf
                 best_prev = None
-                
+
                 for i in prev_states:
-                    score = V[t-1, i] + np.log(self.A[i, j])
+                    score = V[t - 1, i] + np.log(self.A[i, j])
                     if score > best_score:
                         best_score = score
                         best_prev = i
-                
+
                 if best_prev is not None:
                     if j != 0 and j != self.total_states - 1:
                         V[t, j] = best_score + emission_matrix[t, j]
                     else:
                         V[t, j] = best_score
                     backpointer[t, j] = best_prev
-        
+
         path = []
         curr_state = self.total_states - 1
-        
-        for t in range(T-1, -1, -1):
+
+        for t in range(T - 1, -1, -1):
             path.append(curr_state)
             curr_state = backpointer[t, curr_state]
-        
+
         path.reverse()
-        
-        return float(V[T-1, -1]), path
+
+        return float(V[T - 1, -1]), path
