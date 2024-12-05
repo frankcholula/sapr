@@ -3,5 +3,6 @@
 *_set/
 .vscode/
 
-# trained models
+trained_models
 trained_models/hmmlearn/*.pkl
+logs
