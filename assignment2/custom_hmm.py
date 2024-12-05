@@ -159,7 +159,8 @@ class HMM:
                 self_loop = alpha[t - 1, j] + np.log(self.A[j, j])
                 alpha[t, j] = np.logaddexp(from_prev, self_loop) + emission_matrix[t, j]
 
-            alpha[t, -1] = alpha[t - 1, -2] + np.log(self.A[-2, -1])
+            if self.A[-2, -1] > 0:  # Only if transition is allowed
+                alpha[t, -1] = alpha[t - 1, -2] + np.log(self.A[-2, -1] + 1e-300)
 
         return alpha
 
@@ -429,7 +430,7 @@ class HMM:
         Decode the most likely state sequence using the Viterbi algorithm.
         """
         T = features.shape[0]
-        emission_matrix = self.compute_emission_matrix(features.T)
+        emission_matrix = self.compute_emission_matrix(features)
         
         V = np.full((T, self.total_states), -np.inf)
         backpointer = np.zeros((T, self.total_states), dtype=int)

@@ -1,5 +1,4 @@
 import pytest
-import numpy as np
 from custom_hmm import HMM
 from mfcc_extract import load_mfccs, load_mfccs_by_word
 
@@ -30,10 +29,10 @@ def trained_heed_model(hmm_model, heed_features):
     return hmm_model
 
 
-def test_viterbi_decode(trained_heed_model, heed_features, hood_features):
-    path, log_prob = trained_heed_model.decode(heed_features[0])
+def test_viterbi_decode(trained_heed_model, heed_features):
+    log_prob, path = trained_heed_model.decode(heed_features[0])
     print(f"Viterbi Path: {path}")
     print(f"Log Probability: {log_prob}")
     assert (
-        len(path) == heed_features[0].shape[1]
+        len(path) == heed_features[0].shape[0]
     ), "Path should have same length as features"

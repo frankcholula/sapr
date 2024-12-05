@@ -33,6 +33,8 @@ class Decoder:
         logging.info(f"Loaded {len(self.models)} models from {impl_dir} for words: {', '.join(self.vocab)}")
 
     def decode_sequence(self, features: np.ndarray) -> Tuple[str, float, List[int]]:
+        if self.implementation == "custom":
+            features = features.T
         best_score = float("-inf")
         best_word = None
         best_states = None
