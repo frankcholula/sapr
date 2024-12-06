@@ -7,6 +7,7 @@ from sklearn.metrics import confusion_matrix, accuracy_score
 from decoder import Decoder
 import seaborn as sns
 import matplotlib.pyplot as plt
+from visualize import compare_utterances_pca, plot_training_error, plot_error_rates
 
 logging.basicConfig(level=logging.INFO)
 logging.getLogger("matplotlib").setLevel(logging.WARNING)
@@ -15,56 +16,83 @@ logging.getLogger("matplotlib").setLevel(logging.WARNING)
 def extract_labels(all_results: Dict) -> Tuple[List[str], List[str]]:
     true_labels = []
     predicted_labels = []
-    
+
     for results in all_results.values():
         for result in results:
             true_labels.append(result["true_word"])
             predicted_labels.append(result["predicted_word"])
-            
+
     return true_labels, predicted_labels
 
 
-def calculate_metrics(true_labels: List[str], predicted_labels: List[str], vocab: List[str]) -> Tuple[np.ndarray, float]:
+def calculate_metrics(
+    true_labels: List[str], predicted_labels: List[str], vocab: List[str]
+) -> Tuple[np.ndarray, float]:
     label_mapping = {word: idx for idx, word in enumerate(vocab)}
     true_labels_idx = [label_mapping[label] for label in true_labels]
     predicted_labels_idx = [label_mapping[label] for label in predicted_labels]
 
     cm = confusion_matrix(true_labels_idx, predicted_labels_idx)
     accuracy = accuracy_score(true_labels_idx, predicted_labels_idx)
-    
+
     return cm, accuracy
 
 
-def plot_confusion_matrix(cm: np.ndarray, vocab: List[str], implementation: str, feature_set_path: str, model_iter: int) -> None:
+def plot_confusion_matrix(
+    cm: np.ndarray,
+    vocab: List[str],
+    implementation: str,
+    feature_set_path: str,
+    model_iter: int,
+) -> None:
     plt.figure(figsize=(12, 10))
-    
+
     mask_correct = np.zeros_like(cm, dtype=bool)
     np.fill_diagonal(mask_correct, True)
-    
+
     cm_correct = np.ma.masked_array(cm, ~mask_correct)
     cm_incorrect = np.ma.masked_array(cm, mask_correct)
-    
-    sns.heatmap(cm_incorrect, annot=True, cmap='Reds', fmt='d',
-                xticklabels=vocab, yticklabels=vocab, cbar=False)
-    
-    sns.heatmap(cm_correct, annot=True, cmap='Greens', fmt='d',
-                xticklabels=vocab, yticklabels=vocab, cbar=False)
-    
-    plt.title(f'Confusion Matrix - {implementation} ({Path(feature_set_path).stem}) - {model_iter} iterations')
-    plt.xlabel('Predicted')
-    plt.ylabel('True')
-    
-    plt.xticks(rotation=45, ha='right')
+
+    sns.heatmap(
+        cm_incorrect,
+        annot=True,
+        cmap="Reds",
+        fmt="d",
+        xticklabels=vocab,
+        yticklabels=vocab,
+        cbar=False,
+    )
+
+    sns.heatmap(
+        cm_correct,
+        annot=True,
+        cmap="Greens",
+        fmt="d",
+        xticklabels=vocab,
+        yticklabels=vocab,
+        cbar=False,
+    )
+
+    plt.title(
+        f"Confusion Matrix - {implementation} ({Path(feature_set_path).stem}) - {model_iter} iterations"
+    )
+    plt.xlabel("Predicted")
+    plt.ylabel("True")
+
+    plt.xticks(rotation=45, ha="right")
     plt.yticks(rotation=0)
-    
+
     figures_dir = Path("figures")
     figures_dir.mkdir(exist_ok=True)
-    
-    output_path = figures_dir / f"{implementation}_confusion_matrix_{Path(feature_set_path).stem}.png"
+
+    output_path = (
+        figures_dir
+        / f"{implementation}_confusion_matrix_{Path(feature_set_path).stem}.png"
+    )
     plt.tight_layout()
     plt.savefig(output_path)
     plt.close()
-    
+
     logging.info(f"\nSaved confusion matrix plot to: {output_path}")
 
 
@@ -80,20 +108,22 @@ def log_per_word_accuracy(all_results: Dict) -> None:
 def eval_hmm(
     implementation: Literal["custom", "hmmlearn"] = "hmmlearn",
     feature_set_path: str = "eval_feature_set",
-    model_iter: int = 15
+    model_iter: int = 15,
 ) -> Dict[str, Union[dict, float, pd.DataFrame]]:
     decoder = Decoder(implementation=implementation, n_iter=model_iter)
     all_results = decoder.decode_vocabulary(feature_set_path, verbose=False)
 
     true_labels, predicted_labels = extract_labels(all_results)
     cm, accuracy = calculate_metrics(true_labels, predicted_labels, decoder.vocab)
-    
+
     cm_df = pd.DataFrame(cm, index=decoder.vocab, columns=decoder.vocab)
     logging.info(f"\nConfusion Matrix:\n{cm_df}")
     logging.info(f"\nOverall Accuracy: {accuracy:.2%}")
 
     log_per_word_accuracy(all_results)
-    plot_confusion_matrix(cm, decoder.vocab, implementation, feature_set_path, model_iter)
+    plot_confusion_matrix(
+        cm, decoder.vocab, implementation, feature_set_path, model_iter
+    )
 
     return {
         "results": all_results,
@@ -112,3 +142,10 @@ if __name__ == "__main__":
     print("\nEvaluating test set:")
     custom_test_results = eval_hmm("hmmlearn", "eval_feature_set", model_iter=15)
     # hmmlearn_test_results = eval_hmm("custom", "eval_feature_set", model_iter=15)
+
+    print("\nComparing MFCC distributions with utterance separation...")
+    compare_utterances_pca()
+
+    print("\nPlotting training error...")
+    plot_training_error()
+    plot_error_rates(custom_test_results, hmmlearn_dev_results)
