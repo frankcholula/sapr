@@ -1,0 +1,10 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.9.6, pytest-8.3.3, pluggy-1.5.0
+rootdir: /Users/frankcholula/Workspace/school/sapr/assignment2
+configfile: pyproject.toml
+collected 2 items
+
+tests/test_mfcc_extract.py::test_extract_mfcc PASSED
+tests/test_mfcc_extract.py::test_save_and_load_mfcc PASSED
+
+============================== 2 passed in 0.90s ===============================
