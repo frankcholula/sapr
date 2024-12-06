@@ -7,7 +7,7 @@ from sklearn.metrics import confusion_matrix, accuracy_score
 from decoder import Decoder
 import seaborn as sns
 import matplotlib.pyplot as plt
-from visualize import compare_utterances_pca
+from visualize import compare_utterances_pca, plot_training_error, plot_error_rates
 
 logging.basicConfig(level=logging.INFO)
 logging.getLogger("matplotlib").setLevel(logging.WARNING)
@@ -145,3 +145,7 @@ if __name__ == "__main__":
 
     print("\nComparing MFCC distributions with utterance separation...")
     compare_utterances_pca()
+
+    print("\nPlotting training error...")
+    plot_training_error()
+    plot_error_rates(custom_test_results, hmmlearn_dev_results)
