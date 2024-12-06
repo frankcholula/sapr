@@ -43,8 +43,8 @@ def test_emission_matrix(hmm_model, feature_set):
 def test_fb_probabilities_basic(hmm_model, feature_set):
     test_features = feature_set[0]
     emission_matrix = hmm_model.compute_emission_matrix(test_features)
-    alpha = hmm_model.forward(emission_matrix)
-    beta = hmm_model.backward(emission_matrix)
+    alpha, scale_factors = hmm_model.forward(emission_matrix)
+    beta = hmm_model.backward(emission_matrix, scale_factors)
 
     T = emission_matrix.shape[0]
 
@@ -99,8 +99,8 @@ def test_fb_probabilities_basic(hmm_model, feature_set):
 def test_fb_probabilities_advanced(hmm_model, feature_set):
     test_features = feature_set[0]
     emission_matrix = hmm_model.compute_emission_matrix(test_features)
-    alpha = hmm_model.forward(emission_matrix)
-    beta = hmm_model.backward(emission_matrix)
+    alpha, scale_factors= hmm_model.forward(emission_matrix)
+    beta = hmm_model.backward(emission_matrix, scale_factors)
 
     T = emission_matrix.shape[0]
     middle_t = T // 2

@@ -143,117 +143,105 @@ class HMM:
         )
         print(cov_df.round(precision))
 
-    def compute_emission_matrix(self, features: np.ndarray) -> np.ndarray:
+    def compute_emission_matrix(self, features):
         """
         Compute log emission probabilities for each state and time.
         Returns a TxN matrix where T is number of frames and N is number of states.
         """
         T = features.shape[1]
         log_emission_matrix = np.full((T, self.total_states), -np.inf)
-
+        
         # Skip entry (0) and exit (-1) states as they're non-emitting
         for j in range(1, self.total_states - 1):
+            # Center the data
             diff = features - self.B["mean"][j, :, np.newaxis]
-            try:
-                # Handle full covariance calculation
-                inv_cov = np.linalg.inv(self.B["covariance"][j])
-                sign, logdet = np.linalg.slogdet(self.B["covariance"][j])
-                assert (
-                    sign > 0
-                ), f"Non-positive definite covariance matrix for state {j}"
-
-                # Compute for all time steps at once using matrix operations
-                log_emission_matrix[:, j] = -0.5 * (
-                    self.num_obs * np.log(2 * np.pi)
-                    + logdet
-                    + np.sum(diff.T @ inv_cov @ diff, axis=1)
-                )
-            except np.linalg.LinAlgError:
-                logging.warning(
-                    f"Singular covariance matrix for state {j}, using diagonal approximation"
-                )
-                diag_cov = np.diag(np.diag(self.B["covariance"][j]))
-                log_emission_matrix[:, j] = -0.5 * np.sum(
-                    diff**2 / np.diag(diag_cov)[:, np.newaxis]
-                    + np.log(2 * np.pi * np.diag(diag_cov))[:, np.newaxis],
-                    axis=0,
-                )
-
+            
+            # Add small regularization to ensure positive definiteness
+            epsilon = 1e-6
+            cov = self.B["covariance"][j] + epsilon * np.eye(self.num_obs)
+            
+            # Compute inverse and log determinant
+            inv_cov = np.linalg.inv(cov)
+            sign, logdet = np.linalg.slogdet(cov)
+            
+            # Vectorized computation for all time steps
+            log_emission_matrix[:, j] = -0.5 * (
+                self.num_obs * np.log(2 * np.pi) 
+                + logdet
+                + np.sum(diff.T @ inv_cov @ diff, axis=1)
+            )
+        
         return log_emission_matrix
 
-    def forward(self, emission_matrix: np.ndarray) -> np.ndarray:
-        """
-        Compute forward probabilities using the log-space forward algorithm.
-        Returns TxN matrix of log forward probabilities.
-        """
+    def forward(self, emission_matrix: np.ndarray) -> tuple[np.ndarray, float]:
         T = emission_matrix.shape[0]
         alpha = np.full((T, self.total_states), -np.inf)
 
         # Initialize
-        alpha[0, 0] = 0  # Start in entry state with probability 1
-        alpha[0, 1] = np.log(self.A[0, 1]) + emission_matrix[0, 1]  # First real state
+        alpha[0, 0] = 0
+        alpha[0, 1] = np.log(self.A[0, 1]) + emission_matrix[0, 1]
 
-        # Forward recursion
+        # Forward pass
         for t in range(1, T):
+            alpha[t, 0] = -np.inf
             for j in range(1, self.total_states):
-                # Possible previous states
-                prev_states = []
-                if j == 1:  # First real state
-                    prev_states = [0, 1]  # Can come from entry or self
-                elif j == self.total_states - 1:  # Exit state
-                    prev_states = [j - 1, j]  # Can come from last real state or self
-                else:  # Other real states
-                    prev_states = [j - 1, j]  # Can come from previous state or self
-
-                # Compute log sum of incoming transitions
-                log_sum = -np.inf
-                for i in prev_states:
-                    log_sum = np.logaddexp(
-                        log_sum, alpha[t - 1, i] + np.log(self.A[i, j])
+                if j == 1:
+                    alpha[t, j] = (
+                        np.logaddexp(
+                            alpha[t - 1, 0] + np.log(self.A[0, 1]),
+                            alpha[t - 1, 1] + np.log(self.A[1, 1]),
+                        )
+                        + emission_matrix[t, j]
                     )
-
-                # Add emission probability if not in entry/exit state
-                if j not in [0, self.total_states - 1]:
-                    alpha[t, j] = log_sum + emission_matrix[t, j]
+                elif j < self.total_states - 1:
+                    alpha[t, j] = (
+                        np.logaddexp(
+                            alpha[t - 1, j - 1] + np.log(self.A[j - 1, j]),
+                            alpha[t - 1, j] + np.log(self.A[j, j]),
+                        )
+                        + emission_matrix[t, j]
+                    )
                 else:
-                    alpha[t, j] = log_sum
+                    alpha[t, j] = alpha[t - 1, j - 1] + np.log(self.A[j - 1, j])
 
-        return alpha
+        # Global scale factor
+        scale_factor = np.max(alpha)
+        alpha -= scale_factor
 
-    def backward(self, emission_matrix: np.ndarray) -> np.ndarray:
-        """
-        Compute backward probabilities using the log-space backward algorithm.
-        Returns TxN matrix of log backward probabilities.
-        """
+        return alpha, scale_factor
+
+    def backward(self, emission_matrix: np.ndarray, scale_factor: float) -> np.ndarray:
         T = emission_matrix.shape[0]
         beta = np.full((T, self.total_states), -np.inf)
 
-        # Initialize final time step
-        for j in range(self.total_states - 1):
-            if self.A[j, -1] > 0:  # If can transition to exit state
-                beta[T - 1, j] = np.log(self.A[j, -1])
-        beta[T - 1, -1] = 0  # Exit state
+        beta[-1, -1] = 0
 
-        # Backward recursion
         for t in range(T - 2, -1, -1):
-            for i in range(self.total_states - 1):  # All states except exit
-                if i == 0:  # Entry state
-                    next_states = [1]  # Can only go to first real state
-                else:  # Real states
-                    next_states = [i, i + 1]  # Can self-loop or go to next state
+            for i in range(self.total_states - 1):
+                if i == 0:
+                    beta[t, i] = (
+                        np.log(self.A[i, 1])
+                        + emission_matrix[t + 1, 1]
+                        + beta[t + 1, 1]
+                    )
+                elif i < self.total_states - 2:
+                    beta[t, i] = np.logaddexp(
+                        np.log(self.A[i, i])
+                        + emission_matrix[t + 1, i]
+                        + beta[t + 1, i],
+                        np.log(self.A[i, i + 1])
+                        + emission_matrix[t + 1, i + 1]
+                        + beta[t + 1, i + 1],
+                    )
+                else:
+                    beta[t, i] = np.logaddexp(
+                        np.log(self.A[i, i])
+                        + emission_matrix[t + 1, i]
+                        + beta[t + 1, i],
+                        np.log(self.A[i, i + 1]) + beta[t + 1, i + 1],
+                    )
 
-                # Compute log sum of outgoing transitions
-                log_sum = -np.inf
-                for j in next_states:
-                    log_trans = np.log(self.A[i, j])
-                    if j != self.total_states - 1:  # If not transitioning to exit
-                        log_sum = np.logaddexp(
-                            log_sum,
-                            log_trans + emission_matrix[t + 1, j] + beta[t + 1, j],
-                        )
-                    else:  # Transition to exit doesn't include emission
-                        log_sum = np.logaddexp(log_sum, log_trans + beta[t + 1, j])
-                beta[t, i] = log_sum
+        beta[:-1] -= scale_factor
 
         return beta
 
@@ -375,46 +363,41 @@ class HMM:
         # Exit state always self-loops
         self.A[-1, -1] = 1.0
 
-    def update_B(
-        self, features_list: list[np.ndarray], gamma_per_seq: list[np.ndarray]
-    ) -> None:
-        """
-        Update emission parameters using accumulated statistics.
-        """
+    def update_B(self, features_list: list[np.ndarray], gamma_per_seq: list[np.ndarray]) -> None:
         state_means = np.zeros((self.total_states, self.num_obs))
-        state_vars = np.zeros((self.total_states, self.num_obs))
+        state_covars = np.zeros((self.total_states, self.num_obs, self.num_obs))
         state_occupancy = np.zeros(self.total_states)
 
-        # First pass: compute new means
+        # Update means first
         for features, gamma in zip(features_list, gamma_per_seq):
-            # Sum weighted observations for each state (exclude entry/exit)
             for j in range(1, self.total_states - 1):
-                state_means[j] += np.sum(gamma[:, j : j + 1] * features.T, axis=0)
+                state_means[j] += np.sum(gamma[:, j:j+1] * features.T, axis=0)
                 state_occupancy[j] += np.sum(gamma[:, j])
 
-        # Normalize means by state occupancy
         for j in range(1, self.total_states - 1):
             if state_occupancy[j] > 0:
                 state_means[j] /= state_occupancy[j]
 
-        # Second pass: compute new variances
+        # Update covariance matrices
         for features, gamma in zip(features_list, gamma_per_seq):
             for j in range(1, self.total_states - 1):
                 diff = features.T - state_means[j]
-                state_vars[j] += np.sum(gamma[:, j : j + 1] * (diff**2), axis=0)
+                for t in range(features.shape[1]):
+                    state_covars[j] += gamma[t, j] * np.outer(diff[t], diff[t])
 
-        # Normalize variances and apply floor
+        # Normalize and apply variance floor
+        var_floor = self.var_floor_factor * np.mean(np.diagonal(self.global_covariance))
         for j in range(1, self.total_states - 1):
             if state_occupancy[j] > 0:
-                state_vars[j] /= state_occupancy[j]
+                state_covars[j] /= state_occupancy[j]
+                # Ensure symmetry
+                state_covars[j] = (state_covars[j] + state_covars[j].T) / 2
+                # Apply floor to diagonal
+                diag_indices = np.diag_indices(self.num_obs)
+                state_covars[j][diag_indices] = np.maximum(state_covars[j][diag_indices], var_floor)
 
-        # Apply variance floor
-        var_floor = self.var_floor_factor * np.mean(state_vars[1:-1])
-        state_vars[1:-1] = np.maximum(state_vars[1:-1], var_floor)
-
-        # Update model parameters
         self.B["mean"] = state_means
-        self.B["covariance"] = state_vars
+        self.B["covariance"] = state_covars
 
     def baum_welch(
         self, features_list: list[np.ndarray], max_iter: int = 15, tol: float = 1e-4
@@ -439,8 +422,8 @@ class HMM:
             for features in features_list:
                 # Forward-backward calculations
                 emission_matrix = self.compute_emission_matrix(features)
-                alpha = self.forward(emission_matrix)
-                beta = self.backward(emission_matrix)
+                alpha, scale_factors = self.forward(emission_matrix)
+                beta = self.backward(emission_matrix, scale_factors)
                 gamma = self.compute_gamma(alpha, beta)
                 xi = self.compute_xi(alpha, beta, emission_matrix)
 
