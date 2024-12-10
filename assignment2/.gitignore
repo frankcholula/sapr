@@ -9,3 +9,4 @@ trained_models/custom/*.pkl
 
 # Submission files
 *.docx
+README.pdf
